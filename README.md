@@ -157,7 +157,7 @@ $ ./renpy_desktop_generator.sh ../../path/to/your/vn -g
 Install without any prompts with version search support with `-i` (`--install`)
 and `-v` (`--current-version-search`)
 ```sh
-$ ./renpy_desktop_generator.sh ../../path/to/your/vn -iv
+$ ./renpy_desktop_generator.sh ./TSR/game/gui/window_icon.png -iv
 ```
 
 If the script cannot determine the name of the game correctly or the name is
@@ -170,14 +170,15 @@ Desktop files provide a keyword feature to add more meta data that can be used
 for searches. You can add additional keywords by using the `-k` (`--keywords`)
 option
 ```sh
-$ ./renpy_desktop_generator.sh ./TSR.sh -k 'horror' 'romance' 'prequel'
+$ ./renpy_desktop_generator.sh ./Arches.sh -k 'horror' 'echo' 'sequel'
 ```
 By default, *NAME* will be added as a keyword so that the game can be found by
 searching for it even if `-N` was used.
 
 This script was originally only to generate desktop files for the visual
-[PASSWORD](https://passwordvn.itch.io/password) by Grizz. If you want to
-recreate the original behaviour, you could do the following (`-V`,
+[PASSWORD](https://passwordvn.itch.io/password) by
+[Grizz](https://www.patreon.com/PASSWORDVN/). If you want to recreate the
+original behaviour, you could do the following (`-V`,
 `--no-current-version-search`)
 ```sh
 $ cd ./path/to/your/password/installation

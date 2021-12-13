@@ -77,7 +77,7 @@ set_if_unset GUI_HELP_HEIGHT '400' # The height of the help dialogue.
 set_if_unset GUI_SUDO_TIMEOUT '300' # The timeout for the sudo password prompt in seconds (sudo's default is 5 minutes)
 set_if_unset IS_SOURCED 'false' # Set this to true if you want to source the script without executing it
 set_if_unset DIRTY 'false' # Whether this script was currently installing. Determines what the cleanup function tries to uninstall created files
-VERSION_INFO="Ren'Py desktop file generator 2.2.2
+VERSION_INFO="Ren'Py desktop file generator 2.2.3
 
 Written by Noxgrim.
 Based on a script by 🐲Shin." # Printed by ‘--version’
@@ -393,7 +393,7 @@ check_dependencies() {
         if [ -z "$CD_ACT" ]; then
             # shellcheck disable=SC2086 # We want splitting in this case
             if ! has_any $CD_COMMAND; then
-                log 'warning>' "The $(echo "\`$CD_COMMAND\`+command" | sed "s, ,\` or \`,g;tp;be;:p s/$/s/;:e s,+, ,") should be installed for for a better user experience:"
+                log 'warning>' "The $(echo "\`$CD_COMMAND\`+command" | sed "s, ,\` or \`,g;tp;be;:p s/$/s/;:e s,+, ,") should be installed for a better user experience:"
                 CD_ACT=true
             else
                 CD_ACT=false
@@ -512,7 +512,7 @@ unescape_desktop_string() {
 # Prompt the user to answer a yes/no question. If the user leaves the prompt
 # empty a default can be given. If the entry is invalid the prompt will be
 # repeated.
-# Will return immediately if $1 is already set.
+# Will return immediately if $1 is already set to ‘yes’ or ‘no’.
 #
 # $1: The variable to be set. This will be fed to a eval expression so be
 #     careful.
@@ -576,8 +576,8 @@ prompt_user() {
     fi
 }
 
-# Execute stdin as root if the file given as first argument is not writeable by
-# the current user. Otherwise execute stdin directly.
+# Execute stdin as root if any of the files given as arguments is not writeable
+# by the current user. Otherwise execute stdin directly.
 #
 # $@: The file(s) to be checked for write permissions. If one is not, use sudo.
 # stdin: The script to be executed.
@@ -689,7 +689,7 @@ find_theme_attribute_file() {
 #     specification)
 # $3: Whether this key is required. Possible values are 'true' and 'false'.
 #     If the key is absent and $3 is 'true', return unsuccessfully.
-
+#
 # This function expects the $THEME_ATTRIBUTE_FILE and $PTAF_SECTION variables
 # to be set.
 #
@@ -935,7 +935,7 @@ determine_location_agnostic_search_dir() {
     fi
 }
 
-# Creates a desktop file in the current directory. The display name entry in the
+# Creates a desktop file in a temporary directory. The display name entry in the
 # file (Name field) will be set to the configured game name and can be
 # specifically overwritten with $DISPLAY_NAME. If no name is found $BUILD_NAME
 # is used.
@@ -1647,17 +1647,23 @@ find_icon_file() {
         fi
 
         log 'info' "Downloading default icon to ‘$FIF_DL_FILE’."
-        if has wget; then
+        # This is unholy
+        if
+            if has wget; then
 sudo_if_not_writeable "$(dirname "$FIF_DL_FILE")" << EOSUDO
-        wget ${LOG_VERBOSE:+"-v"} ${LOG_VERBOSE:-"-q"} '$(escape_single_quote "$ICON_DOWNLOAD_DEFAULT_URL")' -O '$(escape_single_quote "$FIF_DL_FILE")'
+                wget ${LOG_VERBOSE:+"-v"} ${LOG_VERBOSE:-"-q"} '$(escape_single_quote "$ICON_DOWNLOAD_DEFAULT_URL")' -O '$(escape_single_quote "$FIF_DL_FILE")'
 EOSUDO
+            else
+sudo_if_not_writeable "$(dirname "$FIF_DL_FILE")" << EOSUDO
+                curl ${LOG_VERBOSE:+"-v"} ${LOG_VERBOSE:-"-S"} ${LOG_VERBOSE:-"-s"} '$(escape_single_quote "$ICON_DOWNLOAD_DEFAULT_URL")' -o '$(escape_single_quote "$FIF_DL_FILE")'
+EOSUDO
+            fi
+        then
+            RAW_ICON="$FIF_DL_FILE"
+            ICON_DOWNLOADED='true'
         else
-sudo_if_not_writeable "$(dirname "$FIF_DL_FILE")" << EOSUDO
-        curl ${LOG_VERBOSE:+"-v"} ${LOG_VERBOSE:-"-S"} ${LOG_VERBOSE:-"-s"} '$(escape_single_quote "$ICON_DOWNLOAD_DEFAULT_URL")' -o '$(escape_single_quote "$FIF_DL_FILE")'
-EOSUDO
+            log 'error' 'Could not download icon file!'
         fi
-        RAW_ICON="$FIF_DL_FILE"
-        ICON_DOWNLOADED='true'
     fi
     [ -z "${RAW_ICON:+h}" ] && RAW_ICON='' # Set an empty string signalling that no icon was found
     unset FIF_DL_FILE
