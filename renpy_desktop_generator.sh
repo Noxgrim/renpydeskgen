@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 # This script should be `sh` compatible (and is uglier because of that...).
-# The usage of the commands on the other hand should restrict usage to GNU/BSD.
+# The usage of the commands on the other hand should restrict usage to GNU.
 # I don't even know whether Ren'Py supports non-GNU/BSD Unixes, but the original
 # script used `sh` and shellcheck complained so here you go.
 #
@@ -18,7 +18,7 @@ set -eu
 #
 # $1: The name of the variable to be maybe set.
 # $2: The value to may be set.
-set_if_unset() {
+set_if_unset() { # 2 VARIABLE VALUE
     eval 'SIF_TMP="${RENPYDESKGEN_'"$1"'+.}"'
     if [ -z "$SIF_TMP" ]; then
         eval "$1"'="$2"'
@@ -32,19 +32,19 @@ set_if_unset() {
 # Script options. You may set these manually but they are not always checked, so beware.
 # If you want to set these from outside, you have to prefix the variable name with ‘RENPYDESKGEN_’
 ################################################################################
-set_if_unset CHECK_OPTIONAL_DEPENDENCIES 'true' # If this check is annoying it can be disabled here (and only here).
+set_if_unset CHECK_OPTIONAL_DEPENDENCIES 'true' # If this check is annoying, it can be disabled here (and only here).
 set_if_unset INSTALL_SYSTEM_WIDE "$([ "$(id -u)" = 0 ] && echo true || echo false)" # Install the desktop file for all users or only the current user
 set_if_unset INSTALL_DIR "" # The directory to which the desktop file shall be installed. Will be determined automatically if left empty, otherwise $XDG_DATA_HOME/applications, $XDG_DATA_DIRS/applications are the standard paths
 set_if_unset ICON_DIR "" # The directory to which the icons shall be installed. Will be determined automatically if left empty, otherwise "$XDG_DATA_DIRS/icons", "$HOME/.icons" (legacy), "/usr/share/pixmaps" are the standard paths
 set_if_unset ICON_DISABLED 'false' # Whether to use an icon at all. If the default is changed ‘--no-no-icon’ may help.
 set_if_unset ICON_SIZE_HANDLING 'convert' # Determines how icons are installed if their size is not registered. See ‘--icon-size-not-existing’.
-set_if_unset ICON_HANDLER_PROGRAM "" # Determines which program shall be preferred to work with icons. Valid values: ‘magick’, ‘ffmpeg’ or empty. Defaults to ‘magick’ if empty
+set_if_unset ICON_HANDLER_PROGRAM "" # Determines which program shall be preferred to work with icons. Valid values: ‘magick’, ‘ffmpeg’ or empty. Defaults to ‘magick’ or ‘ffmpeg’ if empty
 set_if_unset ICON_RESIZE_METHOD 'resize' # The scaling method used when resizing an image. See documentation for valid values.
 set_if_unset ICON_CREATE_48x48 'true' # Whether to create the default size demanded by the specification
 set_if_unset ICON_BROAD_SEARCH 'false' # Search for icons matching '*icon*.*'. May produce undesirable results.
-set_if_unset ICON_DOWNLOAD_DEFAULT 'false' # If no icon is found download the default Android one and use that
+set_if_unset ICON_DOWNLOAD_DEFAULT 'false' # If no icon is found, download the default Android one and use that
 set_if_unset ICON_DOWNLOAD_DEFAULT_URL 'https://raw.githubusercontent.com/renpy/rapt/master/templates/android-icon_foreground.png' # The URL to the file to use
-set_if_unset LOCATION_AGNOSTIC_SEARCH_DIR "" # The directory from which to start searching if script should be version agnostic. Defaults to parent of $RENPY_ROOT_DIR if empty and is relative to $RENPY_ROOT_DIR
+set_if_unset LOCATION_AGNOSTIC_SEARCH_DIR "" # The directory from which to start searching if script should be location agnostic. Defaults to parent of $RENPY_ROOT_DIR if empty and is relative to $RENPY_ROOT_DIR
 set_if_unset THEME_ATTRIBUTE_FILE "" # The theme attribute file to use as reference and to edit. Defaults to the first found theme attribute file if empty.
 set_if_unset THEME_UPDATE_SCALE_MIN    1 # The default minimum range for icon sizes if no one is given. Must be an integer.
 set_if_unset THEME_UPDATE_SCALE_MAX 1024 # The default maximum range for icon sizes if no one is given. Must be an integer.
@@ -52,7 +52,7 @@ set_if_unset THEME_UPDATE_THRESHOLD    2 # The default threshold for icon sizes 
 set_if_unset GUI '' # Whether to use a GUI (may be ‘true’, ‘false’ or empty). Will be determined automatically if empty.
 
 # These variables control interactive behaviour: if empty they will be asked for
-# interactively, otherwise ‘yes’ or ‘no’ are supported. {default if unset}
+# interactively, otherwise ‘yes’ or ‘no’ are supported. [default if unset]
 set_if_unset INSTALL '' # Whether to install the desktop file and icon or save them in the game directory [yes]
 set_if_unset UNINSTALL '' # Whether to uninstall the desktop file and icon instead of installing and exit afterwards [no]
 set_if_unset UNINSTALL_REMOVE '' # Whether to remove empty icon directories created by uninstalling [yes]
@@ -76,8 +76,9 @@ set_if_unset GUI_HELP_WIDTH '600' # The width of the help dialogue.
 set_if_unset GUI_HELP_HEIGHT '400' # The height of the help dialogue.
 set_if_unset GUI_SUDO_TIMEOUT '300' # The timeout for the sudo password prompt in seconds (sudo's default is 5 minutes)
 set_if_unset IS_SOURCED 'false' # Set this to true if you want to source the script without executing it
-set_if_unset DIRTY 'false' # Whether this script was currently installing. Determines what the cleanup function tries to uninstall created files
-VERSION_INFO="Ren'Py desktop file generator 2.2.3
+set_if_unset DIRTY 'false' # Whether this script was currently installing. Determines wherher the cleanup function tries to uninstall created files
+set_if_unset QUERY_VARS '' # Used for query behaviour, see ‘--api-query’
+VERSION_INFO="Ren'Py desktop file generator 2.3
 
 Written by Noxgrim.
 Based on a script by 🐲Shin." # Printed by ‘--version’
@@ -90,7 +91,7 @@ THIS_NAME="$(basename "$THIS")" # The name of this script.
 # $1: The command to be checked. Must be accepted by `command`.
 #
 # Returns success if it is, and failure otherwise.
-has() {
+has() { # 1 COMMAND
     command -v "$1" > /dev/null
 }
 
@@ -99,7 +100,7 @@ has() {
 # $@: The commands to be checked. Must be accepted by `command`.
 #
 # Returns success if all of them are, and failure otherwise.
-has_all() {
+has_all() { # @ COMMAND
     for HA_COMMAND in "$@"; do
         if ! has "$HA_COMMAND"; then
             unset HA_COMMAND
@@ -116,7 +117,7 @@ has_all() {
 # $@: The commands to be checked. Must be accepted by `command`.
 #
 # Returns success if any of them is installed, and failure otherwise.
-has_any() {
+has_any() { # @ COMMAND
     for HA_COMMAND in "$@"; do
         if has "$HA_COMMAND"; then
             unset HA_COMMAND
@@ -133,6 +134,9 @@ has_any() {
 # $*: The arguments to be printed.
 #
 # Prints the result to stdout.
+echo() { # @ STRING
+    : # this is a documentation dummy
+}
 if has local; then
 echo() {
     # The horrors of Echo even extend to the realm of shell scripting in the
@@ -160,8 +164,8 @@ fi
 # $1: The scope of the message. This can be either ‘error’, ‘warning’, ‘info’
 #     or ‘debug’.
 # $2: The message. Has to contain the sequence ‘: ’ in the first line.
-log_external() {
-    LE_TEMP="$(echo "$2" | sed '1s/^[^:]*:\s//;2,$s/^\s*//')"
+log_external() { # 2 LOG_LEVEL STRING
+    LE_TEMP="$(echo "$2" | sed '1s/^[^:]*:\s//;2,$ s/^\s*//')"
     if [ "$LOG_SYSTEM" = true ] && has logger; then
         case "$1" in
             error)
@@ -215,8 +219,8 @@ log_external() {
 #
 # The function sets the "static" variables $L_CACHE_[LEVEL] to keep track
 # of multi-line logs. They should not be changed.
-log() {
-    case "$1" in
+log() { # @ LOG_LEVEL STRING
+    case "${1?"Log scope missing!"}" in
         error)
             if [ "$LOG_LEVEL" -gt 0 ]; then
                 shift
@@ -362,13 +366,74 @@ log() {
     esac
 }
 
+# Queries or sets the variables mentioned in $QUERY_VARS and exits the script
+# gracefully if $1 isn't lower-case. Variables are delimited by ‘,’. If a
+# variable name is followed by an ‘=’ (NAME=VAL), the variable will be set to
+# VAL instead of being printed out. More than one variable will result in a
+# shell parseable output in NAME=VAL format.
+#
+# $1: the context from which this function was called. The function only
+#     proceeds if the context matches with the one given in the $QUERY_VARS
+#
+# This function expects the $QUERY_VARS variable to be set.
+#
+# If the function terminates successfully, it will terminate the script
+# successfully if called from the right context.
+query_variables() { # 1 QUERY_CONTEXT
+    QV_SHELL=false
+    case "$QUERY_VARS" in
+        "$1:"*)
+            QUERY_VARS="$(echo "$QUERY_VARS" | cut -d: -f 2-)"
+            ;;
+        "$1+"*)
+            QUERY_VARS="$(echo "$QUERY_VARS" | cut -d+ -f 2-)"
+            QV_SHELL=true
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+    while echo "$QUERY_VARS" | grep -q '='; do
+        eval "$(printf "%s" "$QUERY_VARS" | sed 's/^\([^=]*\(,\|$\)\)*//'| grep -oz . | sed -z '
+            :a;$ be;N;
+                /\x0=$/{s//='"'"'/;bb}
+                /\x0[^0-9a-zA-Z_]/s///
+            ba;
+            :b;$ be;N;
+                /\\\x0\([\,]\)$/{s//\1/;bb}
+                /\x0'\''$/{s//'"'\\\\''"'/;bb}
+                /\x0,$/{s///;be}
+            bb;
+            :e;s/\x0//g;q' | sed '$ s/\x0$/'\'';\n/')"
+        QUERY_VARS="$(echo "$QUERY_VARS" | grep -o '^\([^=]*\(,\|$\)\)*')$( \
+            echo "$QUERY_VARS" | sed 's/^\([^=]*\(,\|$\)\)*//'| grep -oz . | sed -z '
+                    :a;$ bb;N;
+                        /\\\x0\([\,]\)$/{s//\1/;ba}
+                        /\x0,$/{bb}
+                    ba;
+                    :b;s/.*//;
+                    :c;$ be;N;bc
+                    :e;s/\x0//g' | sed '$ s/\x0$/\n/')"
+    done
+    QUERY_VARS="$(echo "$QUERY_VARS" | sed 's/[^0-9a-zA-Z,_]//g;s/,\+/,/g;s/^,//g;s/,$//g')"
+    if [ "$QV_SHELL" = true ] ||  echo "$QUERY_VARS" | grep -q ','; then
+        # 8 consecutive backslashes in simple quotes are completely normal, you see?
+        # shellcheck disable=SC2016,SC1003
+        eval "$(echo "$QUERY_VARS" | sed 's/\([^,]\+\)/printf "\1='"'%s'"'; \1=\\"\\${%s%%_}\\"\\n" "$(printf "%s_" "${\1?"Variable \\"\1\\" not set!"}" | sed "s|'"'|'"'\\\\\\\\'"''"'|g")" "\1"/g;s/,/;\n/g')"
+    elif [ -n "$QUERY_VARS" ]; then
+        eval 'printf "%s" "${'"$QUERY_VARS"'?"Variable \"'"$QUERY_VARS"'\" is not set!"}"'
+    fi
+    unset QV_SHELL
+    echo "$1" | grep -q '[A-Z]' || exit 0
+}
+
 # Check whether the commands this script depends on are installed and if
 # $CHECK_OPTIONAL_DEPENDENCIES is 'true', whether the optional dependencies are
 # installed with a short reason why the user should do so if they are found
 # missing.
 #
 # This function expects the $CHECK_OPTIONAL_DEPENDENCIES variable to be set.
-check_dependencies() {
+check_dependencies() { # 0
     CD_ACT=
     for CD_COMMAND in /bin/sh basename cat cd command cp cut dirname eval exit file find grep head ln\
         id mkdir mkfifo mv printf read readlink return rm sed set shift sudo sort test tr trap unset; do
@@ -412,7 +477,7 @@ check_dependencies() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_single_quote() {
+escape_single_quote() { # 1 STRING
     echo "$1" | sed "s/'/'\\\\''/g"
 }
 
@@ -422,7 +487,7 @@ escape_single_quote() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_grep_pattern() {
+escape_grep_pattern() { # 1 STRING
     echo "$1" | sed 's/[][\^.*$]/\\&/g'
 }
 
@@ -433,7 +498,7 @@ escape_grep_pattern() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_sed_pattern() {
+escape_sed_pattern() { # 1 STRING
     echo "$1" | sed -e 's|[][$*.^\/]|\\&|g'
 }
 
@@ -444,8 +509,49 @@ escape_sed_pattern() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_sed_replacement() {
+escape_sed_replacement() { # 1 STRING
     echo "$1" | sed 's|[&/\]|\\&|g'
+}
+
+# Escape string so that it can be used in single quotes.
+#
+# stdin: The string to be escaped.
+#
+# Prints the result to stdout.
+escape_single_quote_p() { # 0
+    sed "s/'/'\\\\''/g"
+}
+
+# Escape string so that it can be used in a grep pattern.
+# Newlines are not regarded.
+#
+# stdin: The string to be escaped.
+#
+# Prints the result to stdout.
+escape_grep_pattern_p() { # 0
+    sed 's/[][\^.*$]/\\&/g'
+}
+
+# Escape string so that it can be used in a sed pattern section.
+# This function expects the sections to be delimited with ‘/’.
+# Newlines are not regarded.
+#
+# stdin: The string to be escaped.
+#
+# Prints the result to stdout.
+escape_sed_pattern_p() { # 0
+    sed -e 's|[][$*.^\/]|\\&|g'
+}
+
+# Escape string so that it can be used in a sed replacement section.
+# This function expects the sections to be delimited with ‘/’.
+# Newlines are not regarded.
+#
+# stdin: The string to be escaped.
+#
+# Prints the result to stdout.
+escape_sed_replacement_p() { # 0
+    sed 's|[&/\]|\\&|g'
 }
 
 # Escapes a string for the use in a desktop file's Exec field. This will probably
@@ -455,7 +561,7 @@ escape_sed_replacement() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_desktop_exec() {
+escape_desktop_exec() { # 1 STRING
     echo "$1" | sed 's/[ "'\''\><~|&;\$*?#()`]/\\&/g;
                      s/%/%%/g;
                      s/\n/"\\n"/g;
@@ -468,7 +574,7 @@ escape_desktop_exec() {
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
-escape_desktop_string() {
+escape_desktop_string() { # 1 STRING
     echo "$1" | sed 's/\\/&&/g;s/\n/\\n/g;s/\t/\\t/g;s/\r/\\r/g;s/\\n$/\n/' -z
 }
 
@@ -482,9 +588,9 @@ escape_desktop_string() {
 # $1: The strings to be escaped.
 #
 # Prints the result to stdout.
-escape_desktop_strings() {
+escape_desktop_strings() { # 1 STRING
     # shellcheck disable=SC2016
-    echo "$1" | grep -oz . | sed -z ':a;$be;N;
+    echo "$1" | grep -oz . | sed -z ':a;$ be;N;
         /\\\x0;$/{s//\\;\x0\x0/;ba;};
         /\\\x0\\$/{s//\\\\\x0/;ba;};
         /\x0;\x0;$/{s//\x0;/;ba;};
@@ -493,20 +599,20 @@ escape_desktop_strings() {
         /\(\(\\\)\x0\)\?\r$/{s//\2\2\\r/;ba;};
         /\\\x0\(.\)$/s//\\\\\1/;ba;
         :e;/\\\\n$/s//\\;\\n/;/\([^;]\)\x0\\n$/s//\1;\\n/;
-        s/\x0//g;s/^;*//;s/\\n$/\n/;q' | sed '$s/\x0$//'
+        s/\x0//g;s/^;*//;s/\\n$/\n/;q' | sed '$ s/\x0$//'
 }
 # Remove escaping of a string from a desktop file's field that accepts a string.
 #
 # $1: The string from which to remove the escaping.
 #
 # Prints the result to stdout.
-unescape_desktop_string() {
+unescape_desktop_string() { # 1 STRING
     # shellcheck disable=SC2016
-    echo "$1" | grep -oz . | sed -z ':a;$be;N;
+    echo "$1" | grep -oz . | sed -z ':a;$ be;N;
         /\\\x0n$/{s//\n/;ba};  /\\\x0t$/{s//\t/;ba};
         /\\\x0r$/{s//\r/;ba};  /\\\x0s$/{s// /;ba};
         /\\\x0\\$/s//\\/;ba;
-        :e;s/\x0//g;q' | sed '$s/\x0$//'
+        :e;s/\x0//g;q' | sed '$ s/\x0$//'
 }
 
 # Prompt the user to answer a yes/no question. If the user leaves the prompt
@@ -523,7 +629,7 @@ unescape_desktop_string() {
 # This function expects the variable in $1 to be set.
 #
 # The function returns 0 if yes was was chosen, 1 otherwise.
-prompt_user() {
+prompt_user() { # 3 VARIABLE STRING YES_NO_EMPTY
     eval "PC_CHOICE=\"\$$1\""
     if [ "$PC_CHOICE" = yes ]; then
         unset PC_CHOICE
@@ -588,7 +694,7 @@ prompt_user() {
 # afterwards by calling `cleanup`.
 #
 # This function returns successfully if the execution of stdin was successful.
-sudo_if_not_writeable() {
+sudo_if_not_writeable() { # @ FILE
     SINW_SCRIPT=$(cat)
     for SINW_FILE in "$@"; do
         if  [ -e "$SINW_FILE" ] && [ ! -w "$SINW_FILE" ]; then
@@ -647,7 +753,7 @@ EOF
 #
 # If the function terminates successfully, it will set $THEME_ATTRIBUTE_FILE if
 # it was empty or unset before.
-find_theme_attribute_file() {
+find_theme_attribute_file() { # 0
     [ -n "${THEME_ATTRIBUTE_FILE:-}" ] && return
 
     if [ "$INSTALL_SYSTEM_WIDE" = false ]; then
@@ -673,8 +779,8 @@ find_theme_attribute_file() {
 
     if [ "$INSTALL_SYSTEM_WIDE" = false ]; then
         # This is non-specification
-        [ -f "${XDG_DATA_HOME:-"$HOME/.local/share"}/icos/hicolor/index.theme" ] &&\
-            THEME_ATTRIBUTE_FILE="${XDG_DATA_HOME:-"$HOME/.local/share"}/icos/hicolor/index.theme" && return
+        [ -f "${XDG_DATA_HOME:-"$HOME/.local/share"}/icons/hicolor/index.theme" ] &&\
+            THEME_ATTRIBUTE_FILE="${XDG_DATA_HOME:-"$HOME/.local/share"}/icons/hicolor/index.theme" && return
     fi
     # Last resort and maybe non-specification
     [ -f "$ICON_DIR/hicolor/index.theme" ] &&\
@@ -694,7 +800,7 @@ find_theme_attribute_file() {
 # to be set.
 #
 # Prints the value of the key to stdout.
-read_theme_attribute_file_key() {
+read_theme_attribute_file_key() { # 3 STRING ATRRIBUTE_KEY BOOLEAN
     if ! echo "$1" | grep -q "^$2\\s*=" && [ "$3" = true ]; then
         log 'error' "Invalid theme attribute file section ‘$PTAF_SECTION’: '$2'"\
              "key not present (file ‘$THEME_ATTRIBUTE_FILE’)."
@@ -713,7 +819,7 @@ read_theme_attribute_file_key() {
 # Number of directory sections:    $TAF_NUM_DIRS
 # For the ‘Icon Theme’ section only the keys ‘Name’, ‘Comment’, ‘Directories’
 # and ‘ScaledDirectories’ are recorded. Directory sections are only regarded
-# if they are for application icons and are otherwise not parsed an counted.
+# if they are for application icons and are otherwise not parsed and counted.
 # NUMBER IN DIR LISTS is zero indexed.
 #
 # This function expects the $THEME_ATTRIBUTE_FILE variable to be set.
@@ -721,7 +827,8 @@ read_theme_attribute_file_key() {
 # If the function returns successfully, the variables above will be set.
 # The function will return unsuccessfully if a mandatory key was not set and
 # the attribute file is thus not valid.
-parse_theme_attribute_file() {
+parse_theme_attribute_file() { # 0
+    query_variables 't'
     [ -z "${THEME_ATTRIBUTE_FILE:+!}" ] && return 1
     log 'info' 'Parsing theme attribute file…'
     PTAF_TEMP="$(sed -n '/^\[Icon Theme\]$/,/^\[/{p;/^\[/{/^\[Icon Theme\]$/!q}}' "$THEME_ATTRIBUTE_FILE")"
@@ -782,7 +889,7 @@ parse_theme_attribute_file() {
 #
 # If the function returns successfully, the variables above will be set but may
 # be empty if no directory was found
-find_best_icon_size_match() {
+find_best_icon_size_match() { # INTEGER
     BEST_MATCH=
     BEST_MATCH_DISTANCE=
     BEST_MATCH_SIZE=
@@ -813,53 +920,93 @@ find_best_icon_size_match() {
     unset FBISM_ICON_SIZE FBISM_SIZE FBISM_NO FBISM_DIFF
 }
 
-# Tries to extract the configured game name from the game. If $DISPLAY_NAME is
-# set use that, otherwise try to search the name for in in the game directory.
-# In the case that no name was found the function falls back to $BUILD_NAME.
+# Tries to extract a configuration string from the game. The string gets parsed
+# and saved into the variable of the name provided. The starting directory
+# defines the directory in which the containing the configuration are suspected
+# to be. This is ‘$RENPY_ROOT_DIR/game’ in most cases. ‘*.rpy’ as well as any
+# ‘*.rpa’ files are searched.
 #
-# This function expects the $RENPY_ROOT_DIR, $DISPLAY_NAME and $BUILD_NAME
-# related variables to be set.
+# $1: Starting directory for the search
+# $2: Configuration key to search
+# $2: Variable to save to
 #
-# If the function terminates successfully, it will set $GAME_NAME.
-find_game_name() {
-    [ -n "$DISPLAY_NAME" ] && GAME_NAME="$DISPLAY_NAME" && return
+# If the function terminates successfully, it will set the VARIABLE given by $3.
+read_renpy_config_string() { # 3 DIRECTORY STRING VARIABLE
+    # be able to distinguish empty strings from non-matches
+    if has mktemp; then
+        RRC_TEMP="$(mktemp)"
+    else
+        RRC_TEMP="/tmp/renpy_deskgen_find_success"
+        echo "" > "$RRC_TEMP"
+    fi
 
     # OMG correct file handling in UNIX…
     # This script also parses Ren'Py strings correctly in combination with the
     # sed-commands after the find invocation
-    FGN_SEARCH_SCRIPT="$(cat << 'EOF'
+    RRC_SEARCH_SCRIPT="$(cat << 'EOF' | sed "
+        s/GKEY/$(escape_grep_pattern "$2" | escape_single_quote_p | escape_sed_replacement_p)/g
+        s/SKEY/$(escape_sed_pattern  "$2" | escape_single_quote_p | escape_sed_replacement_p)/g
+        s/MARK/$(escape_single_quote  "$RRC_TEMP"                 | escape_sed_replacement_p)/g
+        "
     set -eu
     for FGN_FILE do
-        if grep -q 'config\.name\s*=[^"'\'']*"[^"]*"' "$FGN_FILE"; then
-            sed -n 's/^.*config\.name\s*=[^"'\'']*"\(.*\)".*$/\1/p' "$FGN_FILE" |\
-                grep -oz . | sed -z ':a;$be;N;/\\\x0\([ '\''"\]\)$/{s//\1/;ba};/\\\x0n$/{s/$/\n/;ba};/"$/{s///;be};ba;:e;s/\x0//g;q' |\
-                sed '$s/\x0$//'
-            break
-        elif grep -q "config.name\\s*=[^'\"]*'[^']*'" "$FGN_FILE"; then
-            sed -n "s/^.*config\\.name\\s*=[^'\"]*'\\(.*\\)'.*$/\\1/p" "$FGN_FILE" |\
-                grep -oz . | sed -z ':a;$be;N;/\\\x0\([ '\''"\]\)$/{s//\1/;ba};/\\\x0n$/{s/$/\n/;ba};/'\''$/{s///;be};ba;:e;s/\x0//g;q' |\
-                sed '$s/\x0$//'
-            break
+        if grep -q 'GKEY\s*=[^"'\'']*"[^"]*"' "$FGN_FILE"; then
+            sed -n 's/^.*SKEY\s*=[^"'\'']*"\(.*\)".*$/\1/p' "$FGN_FILE" |\
+                grep -oz . | sed -z ':a;$ be;N;/\\\x0\([ '\''"\]\)$/{s//\1/;ba};/\\\x0n$/{s/$/\n/;ba};/"$/{s///;be};ba;:e;s/\x0//g;q' |\
+                sed '$ s/\x0$//'
+            printf "Ow" > 'MARK'
+            exit 0
+        elif grep -q "GKEY\s*=[^'\"]*'[^']*'" "$FGN_FILE"; then
+            sed -n "s/^.*"'SKEY'"\\s*=[^'\"]*'\\(.*\\)'.*$/\\1/p" "$FGN_FILE" |\
+                grep -oz . | sed -z ':a;$ be;N;/\\\x0\([ '\''"\]\)$/{s//\1/;ba};/\\\x0n$/{s/$/\n/;ba};/'\''$/{s///;be};ba;:e;s/\x0//g;q' |\
+                sed '$ s/\x0$//'
+            printf "O" > 'MARK'
+            exit 0
         fi
     done
 EOF
     )"
 
     # Search in Ren'Py script files. Most likely contained in options.rpy.
-    GAME_NAME="$(find "$RENPY_ROOT_DIR/game" -type f -iname '*.rpy'\
-        -exec /bin/sh -c "$FGN_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
+    RRC_VAL="$(find "$1" -type f -iname '*.rpy'\
+        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
         sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
-    GAME_NAME="${GAME_NAME%_}" # Allow new line at end of game names. For some reason…
 
     # If the creator of the game included .rpy files, the uncompressed portions
     # of an .rpa file may contain the string we're searching for
-    [ -z "$GAME_NAME" ] && GAME_NAME="$(find "$RENPY_ROOT_DIR/game" -type f -iname '*.rpa'\
-        -exec /bin/sh -c "$FGN_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
+    [ -s "$RRC_TEMP" ] || RRC_VAL="$(find "$1" -type f -iname '*.rpa'\
+        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
         sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
-    GAME_NAME="${GAME_NAME%_}"
+
+    if [ -s "$RRC_TEMP" ]; then
+        eval "$3='$(escape_single_quote "${RRC_VAL}")';" "$3=\"\${$3%_}\""
+        rm "$RRC_TEMP"
+        unset RRC_SEARCH_SCRIPT RRC_VAL RRC_TEMP
+        return 0
+    fi
+
+    rm "$RRC_TEMP"
+    unset RRC_SEARCH_SCRIPT RRC_VAL RRC_TEMP
+    return 1
+}
+
+# Tries to extract the configured game name from the game. If $DISPLAY_NAME is
+# set use that, otherwise try to search the name for in in the game directory.
+# In the case that no name was found the function falls back to $BUILD_NAME.
+#
+# $1: Starting directory for the search
+#
+# This function expects the $DISPLAY_NAME and $BUILD_NAME related variables to
+# be set.
+#
+# If the function terminates successfully, it will set $GAME_NAME.
+find_game_name() { # 1 DIRECTORY
+    [ -n "$DISPLAY_NAME" ] && GAME_NAME="$DISPLAY_NAME" && return
+
+    read_renpy_config_string "$1" 'config.name' GAME_NAME || true
 
     # Use build name as fallback
-    if [ -z "$GAME_NAME" ]; then
+    if [ -z "${GAME_NAME+...}" ]; then
         GAME_NAME="$BUILD_NAME"
         log 'warning' "Could not extract game name. Defaulting to ‘$GAME_NAME’."
     else
@@ -878,7 +1025,7 @@ EOF
 # interactively with the default being ‘yes.’ The value will determine whether
 # empty directories should be removed.
 # The theme attribute file will not be updated.
-uninstall() {
+uninstall() { # 0
     if [ -f "$INSTALL_DIR/$VENDOR_PREFIX$BUILD_NAME.desktop" ]; then # Check again and independently in case we are called by cleanup
 sudo_if_not_writeable "$INSTALL_DIR/$VENDOR_PREFIX$BUILD_NAME.desktop" << EOSUDO
         rm ${LOG_VERBOSE:+"-v"} '$(escape_single_quote "$INSTALL_DIR/$VENDOR_PREFIX$BUILD_NAME.desktop")'
@@ -912,7 +1059,7 @@ EOSUDO
 #
 # If the function terminates successfully, it will set
 # $LOCATION_AGNOSTIC_SEARCH_DIR accordingly.
-determine_location_agnostic_search_dir() {
+determine_location_agnostic_search_dir() { # 0
     if [ "$LOCATION_AGNOSTIC" = yes ]; then
         if [ -z "$LOCATION_AGNOSTIC_SEARCH_DIR" ]; then
             LOCATION_AGNOSTIC_SEARCH_DIR="$(dirname "$RENPY_ROOT_DIR")"
@@ -949,8 +1096,9 @@ determine_location_agnostic_search_dir() {
 #
 # If the function terminates successfully, it will set $DESKTOP_FILE to the
 # location of the generated file.
-create_desktop_file() {
-    find_game_name
+create_desktop_file() { # 0
+    query_variables 'g'
+    find_game_name "$RENPY_ROOT_DIR/game"
 
     CDF_SCRIPT="$RENPY_SCRIPT_PATH"
     if [ "$LOCATION_AGNOSTIC" = yes ]; then
@@ -962,7 +1110,8 @@ create_desktop_file() {
             # encoded to avoid unreliable unescaping by launchers…
             CDF_SCRIPT='/bin/sh -c '"$(escape_desktop_exec "printf $(echo "find '$(escape_single_quote "$LOCATION_AGNOSTIC_SEARCH_DIR")' -type f \\( -name '$(escape_single_quote "$BUILD_NAME").[Ss][Hh]' -o -name '$(escape_single_quote "$BUILD_NAME").[Pp][Yy]' \\) -printf '%C+ %p\\0'  | sed -z 's/..\$/sh/' | sort -zr | sort -szk2 | uniq -zdf1 | sort -zr | head -zn1 | cut -zd' ' -f2- | xargs -r0 env" | base64 -w0 -) | base64 -d | /bin/sh")"
         else
-            log 'warning' "\`base64\`, \`env\`, \`uniq\` and \`xargs\` must be installed for current version search to work!"
+            # shellcheck disable=2016
+            log 'warning' '`base64`, `env`, `uniq` and `xargs` must be installed for current version search to work!'
             CDF_SCRIPT="$(escape_desktop_exec "$CDF_SCRIPT")"
         fi
     else
@@ -999,7 +1148,7 @@ EOF
 # This function expects the $ICON_RESIZE_METHOD and $ICON_HANDLER_PROGRAM
 # variables to be set and overwrites the first with the argument that will be
 # actually used.
-determine_icon_program_and_args() {
+determine_icon_program_and_args() { # 0
     if [ -z "$ICON_HANDLER_PROGRAM" ]; then
         if has magick; then
              ICON_HANDLER_PROGRAM='magick'
@@ -1075,7 +1224,7 @@ determine_icon_program_and_args() {
 # $BEST_MATCH_SIZE will contain the directory the icon was installed, that
 # directory's distance to the desired distance $1 and the size of that directory
 # respectively.
-install_icon_to_best_match() {
+install_icon_to_best_match() { # 2 STRING ICON
     DIRTY=true
     # Some unnecessary checks
     IITBM_SIZE="$(echo "$1" | cut -dx -f1)"
@@ -1093,7 +1242,7 @@ install_icon_to_best_match() {
         BEST_MATCH=
         BEST_MATCH_SIZE=
         BEST_MATCH_DISTANCE=
-       [ "$ICON_SIZE_HANDLING" != 'raw' ] && IITBM_ERROR=true
+        [ "$ICON_SIZE_HANDLING" != 'raw' ] && IITBM_ERROR=true
     fi
 
     if [ "$IIBM_ICON_SIZE_HANDLING" = 'convert' ] && ! has_any magick ffmpeg; then
@@ -1273,7 +1422,6 @@ EOSUDO
 #     The icon should be quadratic (the dimensions will not be checked
 #     by the script).
 #
-#
 # This function expects the $BUILD_NAME, $INSTALL, $ICON_ICNS, $VENDOR_PREFIX
 # and $ICON_HANDLER_PROGRAM variables to be set. If $INSTALL is ‘true’
 # $ICON_DIR has to be set, otherwise $LOCATION_AGNOSTIC has to be set.  In this
@@ -1282,7 +1430,8 @@ EOSUDO
 # be set.
 #
 # If the function terminates successfully, it will set $ICON accordingly.
-convert_install_icon() {
+convert_install_icon() { # 1 ICON
+    query_variables 'p'
     [ -z "$1" ] && ICON= && return
     [ ! -f "$1" ] && log 'error' 'Icon must exist!' && exit 1
 
@@ -1352,11 +1501,13 @@ convert_install_icon() {
         CII_ICON_NO=0 # .ico/.icns files may contain multiple files, that are created with a number suffix by the methods above
         CII_BEST_48x48_MATCH=
         # create a folder for each resolution according to the specification
+        query_variables 'i'
+        [ -n "$QUERY_VARS" ] && ICON='' && return 0
         echo "$CII_SIZES" > "$CII_FIFO"&
         while read -r CII_ICON_INFO; do
             if [ "$INSTALL" = yes ]; then
                 install_icon_to_best_match "$CII_ICON_INFO" "$CII_DIR/$BUILD_NAME-$CII_ICON_NO.png"
-                # Keep the closest match to 48×48 for later conversion; remove otherwiese
+                # Keep the closest match to 48×48 for later conversion; remove otherwise
                 if [ -z "$CII_BEST_48x48_MATCH" ]; then
                     CII_BEST_48x48_MATCH=$CII_ICON_NO
                     CII_BEST_48x48_MATCH_DISTANCE="$((48-BEST_MATCH_SIZE))"
@@ -1423,6 +1574,8 @@ EOSUDO
         rmdir ${LOG_VERBOSE:+"-v"} "$CII_DIR"
         rm ${LOG_VERBOSE:+"-v"} "$CII_TEMP_ICON_PATH"
     else
+        query_variables 'i'
+        [ -n "$QUERY_VARS" ] && ICON='' && return 0
         if [ "$(dirname "$1")" = "$RENPY_ROOT_DIR" ] && [ "$LOCATION_AGNOSTIC" = yes ]; then
             CII_ICON_OUT_DIR="$(escape_single_quote "$LOCATION_AGNOSTIC_SEARCH_DIR/.${VENDOR_PREFIX}icons")"
 sudo_if_not_writeable "$LOCATION_AGNOSTIC_SEARCH_DIR" << EOSUDO
@@ -1459,7 +1612,7 @@ EOSUDO
 #
 # If the function terminates successfully, it will set $RENPY_ROOT_DIR,
 # $RENPY_SCRIPT_PATH and $BUILD_NAME accordingly if they were unset previously.
-check_renpy_root_dir() {
+check_renpy_root_dir() { # 1 RENPY_DIRECTORY
     [ ! -d "$1" ] && log 'error' 'Directory must exist!' && exit 1
     if [ -d "$1/renpy" ] && [ -d "$1/game" ] &&\
         find "$1" -maxdepth 1 -type f -iname '*.py' | grep -q . &&\
@@ -1501,7 +1654,7 @@ check_renpy_root_dir() {
 #
 # If the function terminates and the directory is found, $RENPY_ROOT_DIR,
 # $RENPY_SCRIPT_PATH and $BUILD_NAME will be set if they were unset previously.
-find_renpy_root_dir() {
+find_renpy_root_dir() { # 1 DIRECTORY
     [ ! -e "$1" ] && log 'error' 'Start point must exist!' && exit 1
     FRRD_CURR_DIR="$1"
     [ -d "$FRRD_CURR_DIR" ] || FRRD_CURR_DIR="$(dirname "$FRRD_CURR_DIR")"
@@ -1530,7 +1683,7 @@ find_renpy_root_dir() {
 #
 # If the function terminates successfully, it will set $RAW_ICON accordingly to
 # the first found file.
-find_icon_file_glob() {
+find_icon_file_glob() { # 3 DIRECTORY GLOB IMAGE_COMMAND
     [ ! -d "$1" ] && log 'error' 'Directory must exist!' && exit 1
     if [ -z "${3:-}" ]; then
         if [ -n "$ICON_HANDLER_PROGRAM" ]; then
@@ -1538,11 +1691,6 @@ find_icon_file_glob() {
         else
             set -- "$1" "$2" 'file'
         fi
-    fi
-    if [ "$3" = 'ffmpeg' ]; then
-        FIFG_TMP="$(escape_single_quote "$(mktemp -u --suffix=.png)")"
-    else
-        FIFG_TMP=""
     fi
     FIFG_ESCAPE="$(escape_single_quote "$3")"
 
@@ -1584,7 +1732,7 @@ find_icon_file_glob() {
             ffmpeg)
                 if file -b --mime-type "\$FIFG_FILE" | grep -qi '^image/'; then
                     if ffprobe -i "\$FIFG_FILE" -v quiet -show_entries stream=codec_type | grep -q '=video\$'; then
-                        if ffmpeg -i "\$FIFG_FILE" -v quiet -y '$FIFG_TMP'; then
+                        if ffmpeg -i "\$FIFG_FILE" -v quiet -c png -f image2pipe - > /dev/null; then
                             printf '%s' "\$FIFG_FILE"
                             break
                         fi
@@ -1599,51 +1747,51 @@ find_icon_file_glob() {
                 ;;
         esac
     done
-    [ -f '$FIFG_TMP' ] && rm '$FIFG_TMP' || true
 EOF
     )" /bin/sh '{}' +; printf '_')"
     RAW_ICON="${RAW_ICON%_}"
-    unset FIFG_FILE FIFG_TYPE FIFG_ESCAPE FIFG_TMP
+    unset FIFG_FILE FIFG_TYPE FIFG_ESCAPE
 }
 
 # Tries to find a game icon in the game's directory.
 # May also try to download RAPT's (https://github.com/renpy/rapt/) default icon
 # if the user desires to do so.
 #
-# This function expects the $RENPY_ROOT_DIR, $BUILD_NAME,
-# $ICON_DOWNLOAD_DEFAULT, $ICON_DOWNLOAD_DEFAULT_URL and $ICON_BROAD_SEARCH
-# variables to be set.
+# $1: Starting directory for the search
+#
+# This function expects the $BUILD_NAME, $ICON_DOWNLOAD_DEFAULT,
+# $ICON_DOWNLOAD_DEFAULT_URL and $ICON_BROAD_SEARCH variables to be set.
 #
 # If the function terminates successfully, it will set $RAW_ICON, $ICON_ICNS and
 # $ICON_DOWNLOADED accordingly.
-find_icon_file() {
+find_icon_file() { # 1 DIRECTORY
     ICON_ICNS='false'
     ICON_DOWNLOADED='false'
     [ "$ICON_DISABLED" = true ] && RAW_ICON='' && return
     # Search for common Ren'Py icon names in descending order of complexity
     if [ -z "${RAW_ICON:+s}" ] && has icns2png && ! has magick && ! has_all ffmpeg ffprobe; then
         # Prefer MAC icons if magick/ffmpeg is not installed to make being able to handle it correctly more likely
-        find_icon_file_glob "$RENPY_ROOT_DIR" '*.icns' 'icns2png'
+        find_icon_file_glob "$1" '*.icns' 'icns2png'
         [ -n "${RAW_ICON:+h}" ] && ICON_ICNS='true'
     fi
-    [ -z "${RAW_ICON:+d}" ] && find_icon_file_glob "$RENPY_ROOT_DIR" 'icon.*'
-    [ -z "${RAW_ICON:+r}" ] && find_icon_file_glob "$RENPY_ROOT_DIR" 'window_icon.*'
-    [ -z "${RAW_ICON:+e}" ] && find_icon_file_glob "$RENPY_ROOT_DIR" '*.ico' # Windows
+    [ -z "${RAW_ICON:+d}" ] && find_icon_file_glob "$1" 'icon.*'
+    [ -z "${RAW_ICON:+r}" ] && find_icon_file_glob "$1" 'window_icon.*'
+    [ -z "${RAW_ICON:+e}" ] && find_icon_file_glob "$1" '*.ico' # Windows
     if [ -z "${RAW_ICON:+l}" ]; then # Mac
-        find_icon_file_glob "$RENPY_ROOT_DIR" '*.icns' 'icns2png'
+        find_icon_file_glob "$1" '*.icns' 'icns2png'
         [ -n "${RAW_ICON:+l}" ] && ICON_ICNS='true'
     fi
-    [ -z "${RAW_ICON:+y}" ] && find_icon_file_glob "$RENPY_ROOT_DIR" "android-icon_foreground.*"
-    [ -z "${RAW_ICON:+v}" ] && find_icon_file_glob "$RENPY_ROOT_DIR" "$BUILD_NAME.*" # Hopefully the name is not too generic…
+    [ -z "${RAW_ICON:+y}" ] && find_icon_file_glob "$1" "android-icon_foreground.*"
+    [ -z "${RAW_ICON:+v}" ] && find_icon_file_glob "$1" "$BUILD_NAME.*" # Hopefully the name is not too generic…
     [ -z "${RAW_ICON:+s}" ] && [ "$ICON_BROAD_SEARCH" = true ] &&\
-        find_icon_file_glob "$RENPY_ROOT_DIR" '*icon*.*' # This may produce undesired results
+        find_icon_file_glob "$1" '*icon*.*' # This may produce undesired results
     if [ -z "${RAW_ICON:+t}" ] && [ "$ICON_DOWNLOAD_DEFAULT" = true ] && has_any wget curl; then
         if has magick || has_all ffmpeg ffprobe && has mktemp; then
             FIF_DL_FILE="$(mktemp --suffix=.png)" # Only needed temporarily
         elif has mktemp; then
-            FIF_DL_FILE="$(mktemp -p "$RENPY_ROOT_DIR" --suffix=.png 'icon-XXXXXXXXXX')" # May has to be moved later
+            FIF_DL_FILE="$(mktemp -p "$1" --suffix=.png 'icon-XXXXXXXXXX')" # May has to be moved later
         else
-            FIF_DL_FILE="$RENPY_ROOT_DIR/renpydeskgen-downloaded-icon.png" # May has to be moved later
+            FIF_DL_FILE="$1/renpydeskgen-downloaded-icon.png" # May has to be moved later
         fi
 
         log 'info' "Downloading default icon to ‘$FIF_DL_FILE’."
@@ -1678,7 +1826,7 @@ EOSUDO
 #
 # If the function terminates successfully, it will set $INSTALL_DIR and
 # $ICON_DIR accordingly.
-determine_storage_dirs() {
+determine_storage_dirs() { # 0
     if [ "$INSTALL_SYSTEM_WIDE" = true ]; then
         if [ -z "${XDG_DATA_DIRS+s}" ] || [ -z "$XDG_DATA_DIRS" ]; then
             DSD_DATA_DIR="/usr/local/share/"
@@ -1713,7 +1861,7 @@ determine_storage_dirs() {
 #
 # If the function returns successfully, the variables above will be set
 # appropriately.
-check_user_interactable() {
+check_user_interactable() { # 0
     if [ ! -t 0 ]; then
         if has zenity && [ -z "$GUI" ]; then
             GUI=true
@@ -1745,7 +1893,7 @@ check_user_interactable() {
 # Tries to interpret argument as $RENPY_SCRIPT_PATH or $RAW_ICON respectively
 # or will set the searching directory ($START_DIR) as an alternative
 # and set the variables accordingly.
-parse_non_option_command_line_argument() {
+parse_non_option_command_line_argument() { # 1 ARGUMENT
     if ! PNOCLA_TEMP="$(readlink -f "$1")"; then
         log 'error' 'File path must not be empty!' && exit 1
     fi
@@ -1825,8 +1973,9 @@ parse_non_option_command_line_argument() {
 # Arguments that do not belong to an option are interpreted as $RENPY_SCRIPT_PATH
 # or $RAW_ICON respectively or will set the searching directory
 # ($START_DIR) as an alternative.
-parse_command_line_arguments() {
+parse_command_line_arguments() { # @ ARGUMENT
     PCLA_END_OF_OPTIONS='false'
+    PCLA_EXIT='false'
     while [ $# -gt 0 ]; do
         if [ "$PCLA_END_OF_OPTIONS" = true ]; then
             parse_non_option_command_line_argument "$1"
@@ -1905,8 +2054,8 @@ parse_command_line_arguments() {
                     shift
                 fi
                 if ! echo "$PCLA_TEMP" | grep -q '^[a-zA-Z]*$'; then
-                    log 'warning' 'A vendor prefix should only contain alphabetical'
-                    'characters ([a-zA-Z]).'
+                    log 'warning' 'A vendor prefix should only contain alphabetical'\
+                                  'characters ([a-zA-Z]).'
                 fi
                 VENDOR_PREFIX="$PCLA_TEMP"
                 ;;
@@ -2129,13 +2278,11 @@ parse_command_line_arguments() {
                                 ! has icns2png && echo " (Try installing \`icns2png\` if it is an Apple Icon Image. (\`.icns\`))" || true)" && exit 1
                         fi
                     elif has_all ffmpeg ffprobe; then
-                        PCLA_TEMP_FILE="$(mktemp --suffix=.png)"
                         if ! ffprobe -i "$RAW_ICON" -v "$([ -z "${LOG_VERBOSE:+"_"}" ] && echo "quiet" || echo "warning")" -show_entries stream=codec_type | grep -q '=video$' ||\
-                           ! ffmpeg  -i "$RAW_ICON" -v "$([ -z "${LOG_VERBOSE:+"_"}" ] && echo "quiet" || echo "warning")" -y "$PCLA_TEMP_FILE"; then
+                           ! ffmpeg  -i "$RAW_ICON" -v "$([ -z "${LOG_VERBOSE:+"_"}" ] && echo "quiet" || echo "warning")" -c png -f image2pipe - > /dev/null; then
                             log 'error' 'Provided icon cannot be read by FFmpeg!'"$(\
                                 ! has icns2png && echo " (Try installing \`icns2png\` if it is an Apple Icon Image. (\`.icns\`))" || true)" && exit 1
                         fi
-                        rm "$PCLA_TEMP_FILE"
                     fi
                 else
                     log 'error' 'Provided icon is not an image!' && exit 1
@@ -2183,7 +2330,7 @@ parse_command_line_arguments() {
                 UNINSTALL_REMOVE=
                 LOCATION_AGNOSTIC=
                 ;;
-            --no-interactive|--non-interactive)
+            -Q|--no-interactive|--non-interactive)
                 INSTALL=yes
                 UNINSTALL=no
                 UNINSTALL_REMOVE=yes
@@ -2227,15 +2374,19 @@ parse_command_line_arguments() {
                 case "$PCLA_TEMP" in
                     0|q|quiet)
                         LOG_LEVEL=0
+                        LOG_VERBOSE=''
                         ;;
                     1|e|error)
                         LOG_LEVEL=1
+                        LOG_VERBOSE=''
                         ;;
                     2|w|warning)
                         LOG_LEVEL=2
+                        LOG_VERBOSE=''
                         ;;
                     3|i|info)
                         LOG_LEVEL=3
+                        LOG_VERBOSE=''
                         ;;
                     4|d|debug)
                         LOG_LEVEL=4
@@ -2294,12 +2445,18 @@ parse_command_line_arguments() {
             -X|--no-log-system)
                 LOG_SYSTEM=false
                 ;;
+            -q|--quiet)
+                LOG_LEVEL=0
+                LOG_LEVEL_GUI=0
+                LOG_VERBOSE=''
+                LOG_SYSTEM=false
+                ;;
             -h|--help)
                 if [ "$GUI" = true ] && has zenity; then
                     PCLA_TEMP="zenity --text-info --height=$GUI_HELP_HEIGHT --width=$GUI_HELP_WIDTH --title='Help: $(escape_single_quote "${THIS_NAME%.sh}")'"
                 else
                     PCLA_TEMP="${PAGER:-$(has less && echo 'less' || echo 'cat')}"
-                    [ "$PCLA_TEMP" = 'less' ] && PCLA_TEMP='less -F'
+                    case "$PCLA_TEMP" in less|less\ *) PCLA_TEMP="$PCLA_TEMP -F";; esac
                 fi
                 /bin/sh -c "$PCLA_TEMP" << EOF || true
 $THIS_NAME Help:
@@ -2313,7 +2470,7 @@ Syntax:
               the pattern to match. This also applies to substrings.
     STRING... Everything in the command line argument STRING can be repeated an
               arbitrary amount of times - including not at all. Must be a
-              separate command line argument for every repitition.
+              separate command line argument for every repetition.
     STRING 1 | ... | STRING N
               At this position one of STRING 1 to STRING N is possible and
               expected.
@@ -2328,7 +2485,7 @@ Operation:
   1. With the highest priority the path to a game start script (usually called
      NAME.sh) will be used if given
   2. If that is not given, use the directory given as an argument (which may be
-     the game directory intself or one of its subdirectories) to search for the
+     the game directory itself or one of its subdirectories) to search for the
      game directory
   3. Then assume that the given icon file may be located in the game directory
      and use that
@@ -2369,7 +2526,7 @@ Operation:
    ‘--display-name’ can be used to force a better name.
 
  * This script expects ‘/tmp’ to be writeable. If it is not, the script can be
-   executed as super user. This will change the default installation behaviour
+   executed as superuser. This will change the default installation behaviour
    to install the game for all users. See ‘--[no-]install-all-users’.
 
  Recommendations:
@@ -2417,16 +2574,16 @@ Options:
   -E, --no-remove-empty-dirs
         Do not remove empty directories.
   -a, --install-all-users
-        Install the desktop file and icon file(s) system wide, instead of only
+        Install the desktop file and icon file(s) system-wide, instead of only
         for the current user. This affects the automatic determination of
         INSTALLATION_DIR and ICON_DIR if they are empty.
         This does not move the game directory so it and the version search
         directory should still be readable by all users.
-        {default if executed as super user}
+        {default if executed as superuser}
   -A, --no-install-all-users
         Only install the desktop file and icon file(s) for the current user.
         This affects the automatic determination of INSTALLATION_DIR and
-        ICON_DIR if they are empty. {default if NOT executed as super user}
+        ICON_DIR if they are empty. {default if NOT executed as superuser}
 
  Start script, Icon and search directory settings:
   Set the parameters that are otherwise determined by context if given as a
@@ -2451,7 +2608,7 @@ Options:
         version of the game (from the SEARCH_DIR). This may be a good option if
         the user installs a new version by unpacking the archive without
         ensuring that the path to the game start script stays the same.
-        This may still not be fool proof in the case the name of the game
+        This may still not be foolroof in the case the name of the game
         (start script) changes, the change times of scripts do not reflect
         their versions or the user has two files NAME.sh and NAME.py in the
         same directory in the search space that do not belong to the game. It
@@ -2518,7 +2675,7 @@ Options:
  Storage settings:
   Set where and which files are created. If the set location is not accessible
   by the user $USER, this script will ask for the appropriate credentials.
-  In that case the script may also be executed as super user.
+  In that case the script may also be executed as superuser.
   -O ICON_DIR, --icon-dir=ICON_DIR
         The directory that should be used to store the icon(s) when installing.
         This should be one of the standardised XDG icon directories, e.g.
@@ -2640,7 +2797,7 @@ Options:
   VERSION SEARCH choices and how the user interacts with the script.
   --interactive
         Force interactiveness by clearing the values.
-  --no[n]-interactive
+  -Q, --no[n]-interactive
         Force non-interactiveness by setting the defaults for all values. The
         switches ‘--[no-]install’, ‘--[no-]uninstall’,
         ‘--[no-]remove-empty-dirs’ and ‘--[no-]current-version-search’ can be
@@ -2683,16 +2840,119 @@ Options:
   -X, --no-log-system
         Do not write logs to the system logs. This is the default when the
         script is run from a terminal.
+  -q, --quiet
+        The same as ‘--no-log-system --log-level=0 --gui-log-level=0’. May be
+        combined with a \`env RENPYDESKGEN_CHECK_OPTIONAL_DEPENDENCIES=false\`
+        to disable all output.
   --    Do not treat following arguments as options.
+
+ API:
+  These options can be used when this script should be used as an API for
+  querying information about Ren'Py games. These access internal functionality
+  which may be subject to change. Using these options disables creation of
+  non-temporary files. These options are still affected by the options before
+  them.
+  -? CONTEXT:VARIABLE[,VARIABLE...], --api-query=CONTEXT+VARIABLE[,VARIABLE...]
+        Query the value of any VARIABLE at specific CONTEXT. VARIABLE and
+        CONTEXT have to be separated using ‘:’ or ‘+’. Valid values for CONTEXT
+        are:
+        o | O  directly after this option is parsed
+        w      before the \`work\` function is called
+        p      before the icon is processed
+        t      before the theme attribute file is parsed
+        i      before the icon is installed
+        g      before the desktop file is generated
+        d      before the desktop file is installed
+        C      before cleanup (also if called by an early exit)
+        A lower-case context exits the script afterwards.
+        Any letter in variable names not matching \`[0-9a-zA-Z_]\` will be
+        removed.
+        Multiple VARIABLEs can be queried by separating them with ‘,’.
+        If more than one variable is queried or ‘+’ is used instead of ‘:’
+        between CONTEXT and VARIABLEs, a shell parseable string is output.
+        Otherwise, the content of the single variable will be written to stdout
+        with no new additional newline at the end.
+        If the VARIABLE is given in NAME=VALUE format, the value of the variable
+        will be set instead. In this case a ‘,’ has to be escaped with ‘\\’ (as
+        well as ‘\\’ itself). VALUE is parsed literally, including any quotes.
+        Using this option multiple times overwrites the VARIABLEs to query so
+        stacking only makes sense when using the \`o\` context.
+  -! FUNCTION [ARGUMENTS...], --api-call FUNCTION [ARGUMENTS...]
+        Calls a function at the point of parsing.
+        The function takes as many arguments as it requires. Optional arguments
+        are mandatory. After all arguments have been parsed normal option
+        parsing resumes. Functions which take arbitrary arguments stop option
+        parsing with ‘--’. The ‘--’ will be consumed but not passed to the
+        function.
+        If FUNCTION is preceeded by a ‘+’, a failing return code will be
+        ignored.
+        Special functions:
+        * api_functions_list
+        * api_function_documentation
+        * api_variables_list
 EOF
                 exit
+                ;;
+            '-?'|--api-query|'-?='*|--api-query=*)
+                if echo "$1" | grep -Fq '='; then
+                    PCLA_TEMP="$(echo "$1" | cut -d= -f2-)"
+                else
+                    PCLA_TEMP="${2?"Expected an argument for ‘--api-query’!"}"
+                    shift
+                fi
+                if ! echo "$PCLA_TEMP" | grep -q '^[owOptigdC][:+]'; then
+                    log 'error' "Missing or unknown query context! Must match ‘^[owOptigdC][:+]’!" && exit 1
+                fi
+                QUERY_VARS="$PCLA_TEMP"
+                query_variables 'o'
+                query_variables 'O'
+                ;;
+            '-!'|--api-call|'-!='*|--api-call=*)
+                if echo "$1" | grep -Fq '='; then
+                    PCLA_TEMP="$(echo "$1" | cut -d= -f2-)"
+                else
+                    PCLA_TEMP="${2?"Expected an argument for ‘--api-call’!"}"
+                    shift
+                fi
+                PCLA_TEMP_NO_FAIL=false
+                if echo "$PCLA_TEMP" | grep -q '^+'; then
+                    PCLA_TEMP="$(echo "$PCLA_TEMP" | sed 's/^+//')"
+                    PCLA_TEMP_NO_FAIL=true
+                fi
+                PCLA_TEMP_FUNC="$PCLA_TEMP"
+                PCLA_TEMP="$(grep "^$PCLA_TEMP()" "$THIS" -m1 | sed 's/[^#]*#[^0-9@]\([0-9@]*\).*/\1/')"
+                if [ -z "$PCLA_TEMP" ]; then
+                    log 'error>' "Unknown function: $PCLA_TEMP_FUNC!"
+                    log 'error'  "Try calling ‘api_functions_list’"
+                    exit 1
+                fi
+                PCLA_TEMP_NO="2"
+                if [ "$PCLA_TEMP" = '@' ]; then
+                    while [ "$#" -ge "$PCLA_TEMP_NO" ]; do
+                        eval 'PCLA_TEMP="$'"$PCLA_TEMP_NO"'"'
+                        [ "$PCLA_TEMP" = -- ] &&  PCLA_TEMP_NO="$((PCLA_TEMP_NO+1))" && break
+                        PCLA_TEMP_FUNC="$PCLA_TEMP_FUNC \"\$$PCLA_TEMP_NO\""
+                        PCLA_TEMP_NO="$((PCLA_TEMP_NO+1))"
+                    done
+                else
+                    PCLA_TEMP="$((PCLA_TEMP+2))"
+                    while [ "$PCLA_TEMP" != "$PCLA_TEMP_NO" ]; do
+                        PCLA_TEMP_FUNC="$PCLA_TEMP_FUNC \"\${$PCLA_TEMP_NO?\"Function needs $((PCLA_TEMP-2)) argument(s)!\"}\""
+                        PCLA_TEMP_NO="$((PCLA_TEMP_NO+1))"
+                    done
+                fi
+                eval "$PCLA_TEMP_FUNC" || "$PCLA_TEMP_NO_FAIL"
+                shift "$((PCLA_TEMP_NO-2))"
+                unset PCLA_TEMP_NO PCLA_TEMP_FUNC PCLA_TEMP_NO_FAIL
+                PCLA_EXIT='true' # Mark exit after parse
                 ;;
             --)
                 PCLA_END_OF_OPTIONS='true'
                 ;;
             -?|-?=*)
                 log 'error>' "Unknown switch or option ‘$1’. Use ‘--’ to stop option parsing or prepend ‘./’ to relative paths."
-                log 'error>' "Valid short options: -[acdefghiklmnoprstuvwxyACEFGHIKLMNOPSUVWXZ]."
+                log 'error>' "Valid short options: -[acdefghiklmnopqrstuvwxyACEFGHIKLMNOPQSUVWXZ?!]."
+                # Still unused bjzBDJRTY
                 log 'error'  "Try ‘-h’ for information about valid options."
                 exit 1
                 ;;
@@ -2714,15 +2974,16 @@ EOF
         esac
         shift
     done
-    unset PCLA_TEMP PCLA_TEMP_FILE PCLA_END_OF_OPTIONS
+    [ "$PCLA_EXIT" = true ] && exit 0
+    unset PCLA_TEMP PCLA_END_OF_OPTIONS PCLA_EXIT
 }
 
 # Tries to determine the game directory it wasn't set by command line arguments
-#and print it to the user.
+# and print it to the user.
 #
 # If the function terminates successfully, it will set $RENPY_ROOT_DIR,
 # $RENPY_SCRIPT_PATH, and $BUILD_NAME.
-determine_game_directory() {
+determine_game_directory() { # 0
     if [ -z "${RENPY_ROOT_DIR+m}" ] && [ -n "${START_DIR:-}" ]; then
         find_renpy_root_dir "$START_DIR"
     fi
@@ -2747,11 +3008,12 @@ determine_game_directory() {
 # Tries to determine the icon file if it wasn't set by command line arguments
 # and print it to the user.
 #
-# This function expects the $ICON_DOWNLOAD_DEFAULT variable to be set.
+# This function expects the $RENPY_ROOT_DIR and $ICON_DOWNLOAD_DEFAULT variable
+# to be set.
 #
 # If the function terminates successfully, it will set $RAW_ICON.
-determine_icon_file() {
-    find_icon_file
+determine_icon_file() { # 0
+    find_icon_file "$RENPY_ROOT_DIR"
     if [ -n "$RAW_ICON" ]; then
         log 'info' "Found icon ‘$RAW_ICON’."
     elif [ "$ICON_DISABLED" = false ]; then
@@ -2769,7 +3031,8 @@ determine_icon_file() {
 # This function expects the $INSTALL_DIR, $BUILD_NAME, $RENPY_SCRIPT_PATH,
 # $LOCATION_AGNOSTIC_SEARCH_DIR, $VENDOR_PREFIX, $RAW_ICON and $DIRTY
 # variables to be set.
-work() {
+work() { # 0
+    query_variables 'w'
     [ -n "$VENDOR_PREFIX" ] && VENDOR_PREFIX="$VENDOR_PREFIX-"
 
     if [ -f "$INSTALL_DIR/$VENDOR_PREFIX$BUILD_NAME.desktop" ]; then
@@ -2795,6 +3058,7 @@ work() {
 
     create_desktop_file
 
+    query_variables 'd'
     if [ "$INSTALL" = yes ]; then
         if has desktop-file-install; then
 sudo_if_not_writeable "$INSTALL_DIR" << EOSUDO
@@ -2835,7 +3099,8 @@ EOSUDO
 # done or if the script is exited unexpectedly.
 #
 # This function expects the $DIRTY variable to be set.
-cleanup() {
+cleanup() { # 0
+    query_variables 'C'
     # Sudo stuff
     if [ -n "${SINW_ASKPASS+c}" ]; then
         [ -f "$SINW_ASKPASS" ]     && rm "$SINW_ASKPASS"
@@ -2854,6 +3119,7 @@ cleanup() {
     [ -n "${CII_TEMP_ICON_PATH:+e}" ] && [ -f "$CII_TEMP_ICON_PATH" ] && rm ${LOG_VERBOSE:+"-v"} "$CII_TEMP_ICON_PATH"
     [ -n "${PCLA_TEMP_FILE:+i}" ] && [ -f "$PCLA_TEMP_FILE" ] && rm ${LOG_VERBOSE:+"-v"} "$PCLA_TEMP_FILE"
     [ -n "${PNOCLA_TEMP_FILE:+s}" ] && [ -f "$PNOCLA_TEMP_FILE" ] && rm ${LOG_VERBOSE:+"-v"} "$PNOCLA_TEMP_FILE"
+    [ -n "${RRC_TEMP:+a}" ] && [ -f "$RRC_TEMP" ] && rm ${LOG_VERBOSE:+"-v"} "$RRC_TEMP"
     [ -n "${CII_FIFO:+l}" ] && [ -p "$CII_FIFO" ] && rm ${LOG_VERBOSE:+"-v"} "$CII_FIFO"
     [ -n "${FIF_DL_FILE:+i}" ] && [ -f "$FIF_DL_FILE" ] && rm ${LOG_VERBOSE:+"-v"} "$FIF_DL_FILE"
     [ -n "${PTAF_FIFO:+e}" ] && [ -p "$PTAF_FIFO" ] && rm ${LOG_VERBOSE:+"-v"} "$PTAF_FIFO"
@@ -2868,10 +3134,45 @@ cleanup() {
     return 0 # Never fail
 }
 
+# List all the variables which are defined in this file. A variable may be
+# function internal or not set all the time.
+api_variables_list() { # 0
+    # shellcheck disable=SC2016
+    grep -o '\${\?[a-zA-Z_][0-9a-zA-Z_]*' "$THIS" | sed 's/\${\?//g' | sort -u
+}
+
+# List all the functions which are defined in this file followed by their number
+# of possible arguments and the types of these arguments. Results will be
+# printed to stdout.
+api_functions_list() { # 0
+    grep "^[0-9a-zA-Z_]\+()\s*{\s*#" "$THIS" | sed 's/()[^#]*#//;s/[0-9@]\+/(&)/' | sort
+}
+
+# Show the documentation of a given function.
+#
+# $1: The function to document.
+#
+# If this functions terminates successfully, it will print the result to stdout.
+api_function_documentation() { # 1 FUNCTION
+    FD_PAGER="${PAGER:-$(has less && echo 'less' || echo 'cat')}"
+    case "$FD_PAGER" in less|less\ *) FD_PAGER="$FD_PAGER -F";; esac
+    {
+        if ! grep "^$(escape_grep_pattern "$1")()\s*{\s*#" "$THIS" | sed 's/()[^#]*#//;s/[0-9@]\+/(&)/'; then
+            log 'error>' "Unknown function: $1!"
+            log 'error'  "Try calling ‘api_functions_list’"
+            exit 1
+        fi
+        sed '/^#/{H;$!d};/^'"$(escape_sed_pattern "$1")"'()/{x;s/^\n\+//;s/\n\+$/\n/;/^\s*$/!p};z;x;d' "$THIS" | \
+        sed 's/^#\( \?\)/\1\1/g'
+    } |  $FD_PAGER
+    unset FD_PAGER
+    return 0
+}
+
 # Execute all the functions in the correct order.
-main() {
+main() { # @ ARGUMENT
     check_dependencies
-    [ ! -w '/tmp' ] && log 'error' "The ‘/tmp’ directory must exist and be writeable! Try executing as super user." && exit 1
+    [ ! -w '/tmp' ] && log 'error' "The ‘/tmp’ directory must exist and be writeable! Try executing as superuser." && exit 1
     check_user_interactable
 
     trap cleanup EXIT
