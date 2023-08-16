@@ -18,7 +18,7 @@ set -eu
 #
 # $1: The name of the variable to be maybe set.
 # $2: The value to may be set.
-set_if_unset() { # 2 VARIABLE VALUE
+set_if_unset() { # 2 VARIABLE STRING
     eval 'SIF_TMP="${RENPYDESKGEN_'"$1"'+.}"'
     if [ -z "$SIF_TMP" ]; then
         eval "$1"'="$2"'
@@ -82,7 +82,7 @@ VERSION_INFO="Ren'Py desktop file generator 2.3
 
 Written by Noxgrim.
 Based on a script by 🐲Shin." # Printed by ‘--version’
-THIS="$(readlink -f "$0")" # The path to this script.
+THIS="$(readlink -f "$(command -v "$0")")" # The path to this script.
 THIS_NAME="$(basename "$THIS")" # The name of this script.
 ################################################################################
 
@@ -367,7 +367,7 @@ log() { # @ LOG_LEVEL STRING
 }
 
 # Queries or sets the variables mentioned in $QUERY_VARS and exits the script
-# gracefully if $1 isn't lower-case. Variables are delimited by ‘,’. If a
+# gracefully if $1 lower-case. Variables are delimited by ‘,’. If a
 # variable name is followed by an ‘=’ (NAME=VAL), the variable will be set to
 # VAL instead of being printed out. More than one variable will result in a
 # shell parseable output in NAME=VAL format.
@@ -488,18 +488,17 @@ escape_single_quote() { # 1 STRING
 #
 # Prints the result to stdout.
 escape_grep_pattern() { # 1 STRING
-    echo "$1" | sed 's/[][\^.*$]/\\&/g'
+    echo "$1" | sed 's|.|[&]|g'
 }
 
 # Escape string so that it can be used in a sed pattern section.
-# This function expects the sections to be delimited with ‘/’.
 # Newlines are not regarded.
 #
 # $1: The string to be escaped.
 #
 # Prints the result to stdout.
 escape_sed_pattern() { # 1 STRING
-    echo "$1" | sed -e 's|[][$*.^\/]|\\&|g'
+    echo "$1" | sed 's|.|[&]|g'
 }
 
 # Escape string so that it can be used in a sed replacement section.
@@ -529,7 +528,7 @@ escape_single_quote_p() { # 0
 #
 # Prints the result to stdout.
 escape_grep_pattern_p() { # 0
-    sed 's/[][\^.*$]/\\&/g'
+    sed 's|.|[&]|g'
 }
 
 # Escape string so that it can be used in a sed pattern section.
@@ -540,7 +539,7 @@ escape_grep_pattern_p() { # 0
 #
 # Prints the result to stdout.
 escape_sed_pattern_p() { # 0
-    sed -e 's|[][$*.^\/]|\\&|g'
+    sed 's|.|[&]|g'
 }
 
 # Escape string so that it can be used in a sed replacement section.
@@ -968,13 +967,13 @@ EOF
     )"
 
     # Search in Ren'Py script files. Most likely contained in options.rpy.
-    RRC_VAL="$(find "$1" -type f -iname '*.rpy'\
+    RRC_VAL="$(find "$1" -xtype f -iname '*.rpy'\
         -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
         sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
 
     # If the creator of the game included .rpy files, the uncompressed portions
     # of an .rpa file may contain the string we're searching for
-    [ -s "$RRC_TEMP" ] || RRC_VAL="$(find "$1" -type f -iname '*.rpa'\
+    [ -s "$RRC_TEMP" ] || RRC_VAL="$(find "$1" -xtype f -iname '*.rpa'\
         -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
         sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
 
@@ -1035,8 +1034,8 @@ EOSUDO
 sudo_if_not_writeable "$ICON_DIR" << EOSUDO
     find  '$U_ICON_DIR' -name '$(escape_single_quote "$VENDOR_PREFIX$BUILD_NAME.png")' -exec rm ${LOG_VERBOSE:+"-v"} {} +
 EOSUDO
-    if find  "$ICON_DIR" -depth -type d -empty | grep -q .; then
-        log 'info' "Empty directories:" "$(find  "$ICON_DIR" -depth -type d -empty)"
+    if find  "$ICON_DIR" -depth -xtype d -empty | grep -q .; then
+        log 'info' "Empty directories:" "$(find  "$ICON_DIR" -depth -xtype d -empty)"
         if has zenity && [ "$GUI" = true ] && [ "$LOG_LEVEL_GUI" -lt 3 ]; then
             U_NOTICE=" (shown on GUI log level ‘info’)"
         elif [ "$LOG_LEVEL" -lt 3 ]; then
@@ -1044,7 +1043,7 @@ EOSUDO
         fi
         if prompt_user UNINSTALL_REMOVE "Empty directories found${U_NOTICE:-}. Delete them? (The theme will not be updated.)" yes; then
 sudo_if_not_writeable "$ICON_DIR" << EOSUDO
-            find  '$U_ICON_DIR' -depth -type d -empty -exec rmdir ${LOG_VERBOSE:+"-v"} {} \;
+            find  '$U_ICON_DIR' -depth -xtype d -empty -exec rmdir ${LOG_VERBOSE:+"-v"} {} \;
 EOSUDO
         fi
     fi
@@ -1108,7 +1107,7 @@ create_desktop_file() { # 0
             # same name in the same directory and then finds the newest of them,
             # which will be executed. The resulting string is then base64
             # encoded to avoid unreliable unescaping by launchers…
-            CDF_SCRIPT='/bin/sh -c '"$(escape_desktop_exec "printf $(echo "find '$(escape_single_quote "$LOCATION_AGNOSTIC_SEARCH_DIR")' -type f \\( -name '$(escape_single_quote "$BUILD_NAME").[Ss][Hh]' -o -name '$(escape_single_quote "$BUILD_NAME").[Pp][Yy]' \\) -printf '%C+ %p\\0'  | sed -z 's/..\$/sh/' | sort -zr | sort -szk2 | uniq -zdf1 | sort -zr | head -zn1 | cut -zd' ' -f2- | xargs -r0 env" | base64 -w0 -) | base64 -d | /bin/sh")"
+            CDF_SCRIPT='/bin/sh -c '"$(escape_desktop_exec "printf $(echo "find '$(escape_single_quote "$LOCATION_AGNOSTIC_SEARCH_DIR")' -xtype f \\( -name '$(escape_single_quote "$BUILD_NAME").[Ss][Hh]' -o -name '$(escape_single_quote "$BUILD_NAME").[Pp][Yy]' \\) -printf '%C+ %p\\0'  | sed -z 's/..\$/sh/' | sort -zr | sort -szk2 | uniq -zdf1 | sort -zr | head -zn1 | cut -zd' ' -f2- | xargs -r0 env" | base64 -w0 -) | base64 -d | /bin/sh")"
         else
             # shellcheck disable=2016
             log 'warning' '`base64`, `env`, `uniq` and `xargs` must be installed for current version search to work!'
@@ -1426,7 +1425,7 @@ EOSUDO
 # and $ICON_HANDLER_PROGRAM variables to be set. If $INSTALL is ‘true’
 # $ICON_DIR has to be set, otherwise $LOCATION_AGNOSTIC has to be set.  In this
 # case $ICON_DOWNLOADED and $RENPY_ROOT_DIR have to be set. If
-# $LOCATION_AGNOSTIC is ‘yes’ $LOCATION_AGNOSTIC_SEARCH_DIR additionally ha to
+# $LOCATION_AGNOSTIC is ‘yes’ $LOCATION_AGNOSTIC_SEARCH_DIR additionally has to
 # be set.
 #
 # If the function terminates successfully, it will set $ICON accordingly.
@@ -1615,11 +1614,11 @@ EOSUDO
 check_renpy_root_dir() { # 1 RENPY_DIRECTORY
     [ ! -d "$1" ] && log 'error' 'Directory must exist!' && exit 1
     if [ -d "$1/renpy" ] && [ -d "$1/game" ] &&\
-        find "$1" -maxdepth 1 -type f -iname '*.py' | grep -q . &&\
-        find "$1" -maxdepth 1 -type f -iname '*.sh' | grep -q .; then
+        find "$1" -maxdepth 1 -xtype f -iname '*.py' | grep -q . &&\
+        find "$1" -maxdepth 1 -xtype f -iname '*.sh' | grep -q .; then
 
-        CRRD_SCRIPT="$(find "$1" -maxdepth 1 -type f -iname '*.sh' | sort | head -n1)"
-        CRRD_PYTHON="$(find "$1" -maxdepth 1 -type f -iname '*.py' | sort | head -n1)"
+        CRRD_SCRIPT="$(find "$1" -maxdepth 1 -xtype f -iname '*.sh' | sort | head -n1)"
+        CRRD_PYTHON="$(find "$1" -maxdepth 1 -xtype f -iname '*.py' | sort | head -n1)"
         if file -b "$CRRD_SCRIPT" | grep -qi '^POSIX shell script'; then
             [ -z "${RENPY_ROOT_DIR+a}" ] && RENPY_ROOT_DIR="$1"
             [ -z "${RENPY_SCRIPT_PATH+m}" ] && RENPY_SCRIPT_PATH="$CRRD_SCRIPT"
@@ -1645,9 +1644,44 @@ check_renpy_root_dir() { # 1 RENPY_DIRECTORY
     return 0
 }
 
+# Searches for all valid Ren'Py game directories under a given root. The found
+# directories are saved into variables using the following naming scheme:
+#   Game BUILD_NAME:         $FARRD__[NUMBER]_BUILD_NAME
+#   Game RENPY_ROOT_DIR:     $FARRD__[NUMBER]_RENPY_ROOT_DIR
+#   Game RENPY_SCRIPT_PATH:  $FARRD__[NUMBER]_RENPY_SCRIPT_PATH
+#   Total number of games found: $FARRD_NUM_GAMES
+# NUMBER is zero indexed.
+# This function may take a while to execute.
+#
+# $1: contains the directory to be checked. It is expected to be a existing
+#     directory.
+#
+# If the function terminates successfully, it will set the variables mentioned
+# above.
+find_all_renpy_games() { # 1 DIRECTORY
+    [ ! -d "$1" ] && log 'error' 'Directory must exist!' && exit 1
+    eval "$(find "$1" -iname '*.sh' -executable -exec /bin/sh -c  "$(cat << EOF
+    set -eu
+    export RENPYDESKGEN_IS_SOURCED=true
+    . '$(escape_single_quote "$THIS")'
+    FARRD_NUM_GAMES=0
+    for F; do
+        if check_renpy_root_dir "\$(dirname "\$F")"; then
+            printf '%s' "FARRD__\${FARRD_NUM_GAMES}_BUILD_NAME='\$(escape_single_quote "\$BUILD_NAME")';"
+            printf '%s' "FARRD__\${FARRD_NUM_GAMES}_RENPY_SCRIPT_PATH='\$(escape_single_quote "\$RENPY_SCRIPT_PATH")';"
+            printf '%s' "FARRD__\${FARRD_NUM_GAMES}_RENPY_ROOT_DIR='\$(escape_single_quote "\$RENPY_ROOT_DIR")';"
+            unset BUILD_NAME RENPY_SCRIPT_PATH RENPY_ROOT_DIR
+            FARRD_NUM_GAMES=\$((FARRD_NUM_GAMES+1))
+        fi
+    done
+    echo "FARRD_NUM_GAMES=\$FARRD_NUM_GAMES;"
+EOF
+    )" /bin/sh '{}' +)"
+}
+
 # Tries to find a Ren'Py game directory from a given starting point (see
 # documentation of `check_renpy_root_dir`). The search spans over all parent
-# directories and only  stops if the directory is found or ‘/’ is reached
+# directories and only stops if the directory is found or ‘/’ is reached
 # (unsuccessfully).
 #
 # $1: contains the starting point. It may be a file or directory but must exist.
@@ -1695,7 +1729,7 @@ find_icon_file_glob() { # 3 DIRECTORY GLOB IMAGE_COMMAND
     FIFG_ESCAPE="$(escape_single_quote "$3")"
 
     # OMG correct file handling in UNIX…
-    RAW_ICON="$(find "$1" -type f -iname "$2" -exec /bin/sh -c "$(cat << EOF
+    RAW_ICON="$(find "$1" -xtype f -iname "$2" -exec /bin/sh -c "$(cat << EOF
     set -eu
     has() { # Documentation above
         command -v "\$1" > /dev/null
@@ -2863,9 +2897,9 @@ Options:
         i      before the icon is installed
         g      before the desktop file is generated
         d      before the desktop file is installed
-        C      before cleanup (also if called by an early exit)
+            C  before cleanup (also if called by an early exit)
         A lower-case context exits the script afterwards.
-        Any letter in variable names not matching \`[0-9a-zA-Z_]\` will be
+        Any letters in variable names not matching \`[0-9a-zA-Z_]\` will be
         removed.
         Multiple VARIABLEs can be queried by separating them with ‘,’.
         If more than one variable is queried or ‘+’ is used instead of ‘:’
@@ -2963,7 +2997,7 @@ EOF
                 ;;
             -*)
                 # Split concatenated arguments. This is very simple so weird
-                # behaviour in some constructed edge case is possible.
+                # behaviour in some constructed edge cases is possible.
                 PCLA_TEMP="$1"
                 shift
                 set -- '' "$(echo "$PCLA_TEMP" | cut -c1-2)" "$(echo "$PCLA_TEMP" | cut -c1,3-)" "$@"
@@ -3100,7 +3134,7 @@ EOSUDO
 #
 # This function expects the $DIRTY variable to be set.
 cleanup() { # 0
-    query_variables 'C'
+    query_variables 'C' || true
     # Sudo stuff
     if [ -n "${SINW_ASKPASS+c}" ]; then
         [ -f "$SINW_ASKPASS" ]     && rm "$SINW_ASKPASS"
@@ -3132,6 +3166,57 @@ cleanup() { # 0
         uninstall
     fi
     return 0 # Never fail
+}
+
+api_complete_renpy_data() { # 2 STRING DIRECTORY
+    find_all_renpy_games "$2"
+    ACRD_I=0
+    case "$1" in
+        dir)    ACRD_QUERY="RENPY_ROOT_DIR";;
+        bname)  ACRD_QUERY="BUILD_NAME";;
+        script) ACRD_QUERY="RENPY_SCRIPT_PATH";;
+        *)
+            log 'error' "Unknown completion: $1" && exit 1
+    esac
+    while [ $ACRD_I -lt "$FARRD_NUM_GAMES" ]; do
+        eval "printf '%s\\0' \"\$FARRD__${ACRD_I}_${ACRD_QUERY}\""
+        ACRD_I="$((ACRD_I+1))"
+    done
+
+    unset ACRD_I ACRD_QUERY
+}
+
+api_complete() { # 2 STRING DIRECTORY
+    case "$1" in
+        ARGUMENT) ;;
+        ATRRIBUTE_KEY)  printf 'Name\0Comment\0Directories\0ScaledDirectories\0Size\0Scale\0Context\0Type\0MaxSize\0MinSize\0Threshold\0';;
+        BOOLEAN) printf 'true\0false\0';;
+        DIRECTORY) find "$2" -xtype d;;
+        FILE)  find "$2" -xtype f;;
+        FUNCTION)
+            grep -o '^[0-9a-zA-Z_]\+()\s*{\s*#' "$THIS" | tr '\n' '\000' | sed -z 's/()[^#]*#.*//' | sort -z
+            ;;
+        ICON) ;; # TODO
+        IMAGE_COMMAND) printf 'ffmpeg\0magick\0icns2png\0file\0';;
+        QUERY_CONTEXT) ;;
+        RENPY_DIRECTORY)
+            api_complete_renpy_data 'dir' "$2"
+            ;;
+        RENPY_SCRIPT_PATH)
+            api_complete_renpy_data 'script' "$2"
+            ;;
+        BUILD_NAME)
+            api_complete_renpy_data 'bname' "$2"
+            ;;
+        STRING|INTEGER|GLOB) ;; # no-op
+        VARIABLE)
+            # shellcheck disable=SC2016
+            grep -o '\${\?[a-zA-Z_][0-9a-zA-Z_]*' "$THIS" | tr '\n' '\000' | sed -z 's/\${\?//g' | sort -zu
+            ;;
+        YES_NO_EMPTY) printf 'yes\0no\0\0';;
+        *)
+            log 'error' "Unknown completion: $1" && exit 1
+    esac
 }
 
 # List all the variables which are defined in this file. A variable may be

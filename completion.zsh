@@ -1,5 +1,6 @@
 #compdef rdg
 local -a all_opts
+local -a rdg=( env RENPYDESKGEN_CHECK_OPTIONAL_DEPENDENCIES=false rdg -qQ )
 
 _rdg_icon_size_handler() {
     local ret=1
@@ -63,7 +64,7 @@ _rdg_log_level(){
     local -a levels
     levels=(
         {4,debug,d}:'log file system operations and print `sudo`'
-        {3,info,i}:'status informations'
+        {3,info,i}:'status information'
         {2,warning,w}:'warnings'
         {1,errors,e}:'errors'
         {0,quiet,q}:'suppress most output'
@@ -102,7 +103,7 @@ all_opts=(
     '(-t --theme-attribute-file)'{-t,--theme-attribute-file=}"[file containing configurations]"':theme file:_files'
     '(-H --icon-size-not-existing-handling)'{-H,--icon-size-not-existing-handling=}"[how to handle undefined icon sizes]"':icon size handling:_rdg_icon_size_handler'
     '(-r --icon-resize-method)'{-r,--icon-resize-method=}"[icon resizing algorithm]"':icon size method:_rdg_icon_resize'
-    '(-C --no-icon -c --icon)'{-C,--no-icon}'[do not use an icon]'
+    '(-C --no-icon -c --icon --no-no-icon)'{-C,--no-icon}'[do not use an icon]'
     '(--broad-icon-search --no-broad-icon-search)--broad-icon-search[threat anything with ‘icon’ in its name as an icon]'
     '(--broad-icon-search --no-broad-icon-search)--no-broad-icon-search[do not threat anything with ‘icon’ in its name as an icon]'
     '(-w --download-fallback-icon -W --no-download-fallback-icon)'{-w,--download-fallback-icon}'[download a default icon in none is found]'
@@ -113,19 +114,22 @@ all_opts=(
     '!(-Q --interactive --no-interactive --non-interactive)--non-interactive[disable interactiveness]'
     '(-y --yes -n --no)'{-y,--yes}'[assume ‘yes’ for all prompts]'
     '(-y --yes -n --no)'{-n,--no}'[assume ‘no’ for all prompts]'
-    '(-g --gui -G --no-gui)'{-g,--gui}'[force use of GUI]'
+    '(-g --gui -G --no-gui)'{-g,--gui}'[force use of]'
     '(-g --gui -G --no-gui)'{-G,--no-gui}'[disable GUI]'
     '(-l --log-level)'{-l,--log-level}'[set verbosity of script]:log level:_rdg_log_level'
     '(-L --gui-log-level)'{-L,--gui-log-level}'[set amount of GUI info dialogues]:log level:_rdg_log_level'
     '(-x --log-system -X --no-log-system)'{-x,--log-system}'[also log to system log]'
     '(-x --log-system -X --no-log-system)'{-X,--no-log-system}'[do not log to system log]'
     '(-q --quiet -X --no-log-system)'{-q,--quiet}'[same as ‘-Xl 0 -L 0’]'
-    '(-? --api-query)'{-'\?',--api-query}'[API: query variables]:variables:_rdg_variables'
+    '(-? --api-query)'{-'\\?',--api-query}'[API: query variables]:variables:_rdg_variables'
     '(-! --api-call)'{-!,--api-call}'[API: call function]:functions:_rdg_functions'
     '(- :)'{-h,--help}'[show help message in pager]'
     '(- :)'{-Z,--version}'[print version information]'
     '*:file:_files'
     )
+if [ "$($rdg -\? o:ICON_DISABLED)" = true ]; then
+    all_opts=($all_opts '(-C --no-icon --no-no-icon)--no-no-icon[overwrite a default -C with this secret option OwO]')
+fi
 
 local curcontext="$curcontext" state state_descr line ret=1
 typeset -A opt_args

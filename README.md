@@ -175,7 +175,7 @@ $ ./renpy_desktop_generator.sh ./Arches.sh -k 'horror' 'echo' 'sequel'
 By default, *NAME* will be added as a keyword so that the game can be found by
 searching for it even if `-N` was used.
 
-This script was originally only to generate desktop files for the visual
+This script was originally only to generate desktop files for the visual novel
 [PASSWORD](https://passwordvn.itch.io/password) by
 [Grizz](https://www.patreon.com/PASSWORDVN/). If you want to recreate the
 original behaviour, you could do the following (`-V`,
