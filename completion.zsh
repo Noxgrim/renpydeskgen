@@ -73,6 +73,44 @@ _rdg_log_level(){
     return $ret
 }
 
+_rdg_complete() {
+    local -a complete indices
+    local dir
+    local -i index
+    if [[ -e $words[$CURRENT] ]]; then
+        dir=$words[$CURRENT]
+        [[ -d "$dir" ]] || dir=${dir%/*}
+    else
+        indices=($words[(I)-s] $words[(I)-d] $words[(I)--script] $words[(I)--starting-dir])
+        index=${${(nO)indices}[1]}
+        if [[ $index == $((CURRENT-1)) ]]; then
+            index=${${(nO)indices}[2]}
+        fi
+        if [[ $index > 0  ]]; then
+            dir=$words[index+1]
+            [[ -d "$dir" ]] || dir=${dir%/*}
+        else
+            dir='.'
+        fi
+    fi
+
+    IFS=$'\0' complete=($($rdg '-!' api_complete "$1" "$dir" | sed '$s/\x00$//'))
+    _describe "$2" complete && ret=0
+    return $ret
+}
+
+_rdg_xdg_dirs() {
+    local -a complete
+    complete=(${(s.:.)XDG_DATA_DIRS} '/usr/local/share/' $XDG_DATA_HOME "$HOME/.local/share/")
+    complete=(${(u)complete})
+    complete=(${^complete}/$1)
+    complete=(${complete:A})
+    [[ "$1" == 'icon' && -d "$HOME/.icons" ]] && complete=( $complete "$HOME/.icons" )
+    [[ "$1" == 'icon' && -d '/usr/share/pixmaps' ]] && complete=( $complete '/usr/share/pixmaps' )
+    _describe "$2" complete && ret=0
+    return $ret
+}
+
 all_opts=(
     '(-i --install -I --no-install)'{-i,--install}'[install the desktop file]'
     '(-i --install -I --no-install)'{-I,--no-install}'[do not install the desktop file]'
@@ -82,21 +120,21 @@ all_opts=(
     '(-e --remove-empty-dirs -E --no-remove-empty-dirs)'{-E,--no-remove-empty-dirs}'[do not remove empty directories when uninstalling]'
     '(-a --install-all-users -A --no-install-all-users)'{-e,--install-all-users}'[install system wide]'
     '(-a --install-all-users -A --no-install-all-users)'{-E,--no-install-all-users}'[do not install system wide]'
-    '(-s --script)'{-s,--script=}"[Ren'Py start script]"':script file:->startscript' ## TODO:  <30-01-22, yourname> #
-    '(-d --starting-dir)'{-d,--starting-dir=}"[Ren'Py game directory]"':game directory:_files -/' ## TODO
-    '(-c --icon -C --no-icon)'{-c,--icon=}"[icon file]"':icon file:_files -/' ## TODO
+    '(-s --script)'{-s,--script=}"[Ren'Py start script]"':script file:->startscript'
+    '(-d --starting-dir)'{-d,--starting-dir=}"[Ren'Py game directory]"':game directory:->startdir'
+    '(-c --icon -C --no-icon)'{-c,--icon=}"[icon file]"':icon file:_files'
     '(-v --current-version-search -V --no-current-version-search)'{-v,--current-version-search}'[search for newest version of game]'
     '(-v --current-version-search -V --no-current-version-search)'{-V,--no-current-version-search}'[do not search for newest version of game]'
     '(-S --current-version-search-dir)'{-S,--current-version-search-dir=}'[start directory for current version]:version search directory:_files -/'
-    '(-N --display-name)'{-N,--display-name=}"[displayed game name]"':game name:->gamename' # TODO
+    '(-N --display-name)'{-N,--display-name=}"[displayed game name]"':game name:->gamename'
     '(-K --set-keywords)*'{-k,--add-keywords=}"[add keywords]"':keywords:'
     '!(-K --set-keywords)*'{--keywords=}"[add keywords]"':keywords:'
     '(-K --set-keywords)'{-K,--set-keywords=}"[set keywords]"':keywords:'
     '(-m --name-keyword -M --no-name-keyword)'{-v,--name-keyword}'[use script name as keyword]'
     '(-m --name-keyword -M --no-name-keyword)'{-V,--no-name-keyword}'[do not use script name as keyword]'
     '(-p --vendor-prefix)'{-p,--vendor-prefix=}"[prefix of generated files]"':vendor prefix:'
-    '(-O --icon-dir)'{-O,--icon-dir=}"[icon installation directory]"':icon directory:_files -/' # TODO
-    '(-o --installation-dir)'{-o,--installation-dir=}"[desktop file installation directory]"':desktop file directory:_files -/' # TODO
+    '(-O --icon-dir)'{-O,--icon-dir=}"[icon installation directory]"':icon directory:->icondir'
+    '(-o --installation-dir)'{-o,--installation-dir=}"[desktop file installation directory]"':desktop file directory:->installdir'
     '(-f --create-default-icon-size -F --no-create-default-icon-size)'{-f,--create-default-icon-size}'[create 48×48 icon]'
     '(-f --create-default-icon-size -F --no-create-default-icon-size)'{-f,--no-create-default-icon-size}'[do not create 48×48 icon]'
     '(-P --icon-handling-program)'{-P,--icon-handling-program=}"[program for icon conversion, extraction, etc.]"':icon program:->iconprog'
@@ -146,5 +184,31 @@ case $state in
       fi
       _describe 'icon handler' progs && ret=0
     ;;
+  (startscript)
+      _rdg_complete "RENPY_SCRIPT_PATH" "Ren'Py script"
+      ;;
+  (startdir)
+      _rdg_complete "RENPY_DIRECTORY" "Ren'Py directory"
+      ;;
+  (gamename)
+      # You may want to use BUILD_NAME instead of GAME_NAME here to be faster
+      _rdg_complete "GAME_NAME" "Ren'Py game name"
+      ;;
+  (icondir)
+      _rdg_comp_temp() {
+          _rdg_xdg_dirs 'icons' 'XDG icon directory'
+      }
+      _alternative \
+          "XDG directories:XDG dir:_rdg_comp_temp" \
+          'directories:dir:_files -/'
+      ;;
+  (installdir)
+      _rdg_comp_temp() {
+          _rdg_xdg_dirs 'applications' 'XDG installation directory'
+      }
+      _alternative \
+          "XDG directories:XDG dir:_rdg_comp_temp" \
+          'directories:dir:_files -/'
+      ;;
 esac
 return ret

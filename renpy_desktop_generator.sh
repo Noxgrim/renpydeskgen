@@ -3174,14 +3174,29 @@ api_complete_renpy_data() { # 2 STRING DIRECTORY
     case "$1" in
         dir)    ACRD_QUERY="RENPY_ROOT_DIR";;
         bname)  ACRD_QUERY="BUILD_NAME";;
+        gname)  ACRD_QUERY="RENPY_ROOT_DIR";;
         script) ACRD_QUERY="RENPY_SCRIPT_PATH";;
         *)
             log 'error' "Unknown completion: $1" && exit 1
     esac
-    while [ $ACRD_I -lt "$FARRD_NUM_GAMES" ]; do
-        eval "printf '%s\\0' \"\$FARRD__${ACRD_I}_${ACRD_QUERY}\""
-        ACRD_I="$((ACRD_I+1))"
-    done
+    case "$1" in
+        gname)
+            (
+                while [ $ACRD_I -lt "${FARRD_NUM_GAMES-0}" ]; do
+                    DISPLAY_NAME=
+                    eval "BUILD_NAME=\"\$FARRD__${ACRD_I}_BUILD_NAME\""
+                    eval "find_game_name \"\$FARRD__${ACRD_I}_${ACRD_QUERY}/game\""
+                    printf '%s\0' "$GAME_NAME"
+                    ACRD_I="$((ACRD_I+1))"
+                done
+            )
+            ;;
+        *)
+            while [ $ACRD_I -lt "${FARRD_NUM_GAMES-0}" ]; do
+                eval "printf '%s\\0' \"\$FARRD__${ACRD_I}_${ACRD_QUERY}\""
+                ACRD_I="$((ACRD_I+1))"
+            done
+    esac
 
     unset ACRD_I ACRD_QUERY
 }
@@ -3207,6 +3222,9 @@ api_complete() { # 2 STRING DIRECTORY
             ;;
         BUILD_NAME)
             api_complete_renpy_data 'bname' "$2"
+            ;;
+        GAME_NAME)
+            api_complete_renpy_data 'gname' "$2"
             ;;
         STRING|INTEGER|GLOB) ;; # no-op
         VARIABLE)
