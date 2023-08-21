@@ -968,14 +968,14 @@ EOF
 
     # Search in Ren'Py script files. Most likely contained in options.rpy.
     RRC_VAL="$(find "$1" -xtype f -iname '*.rpy'\
-        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
-        sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
+        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + 2>/dev/null |\
+        head -n1 | sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
 
     # If the creator of the game included .rpy files, the uncompressed portions
     # of an .rpa file may contain the string we're searching for
     [ -s "$RRC_TEMP" ] || RRC_VAL="$(find "$1" -xtype f -iname '*.rpa'\
-        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + | head -n1 |\
-        sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
+        -exec /bin/sh -c "$RRC_SEARCH_SCRIPT" /bin/sh '{}' + 2>/dev/null |\
+        head -n1 | sed -z 's/\n$//;s/\[\[/[/g;s/{{/{/g'; printf '_')"
 
     if [ -s "$RRC_TEMP" ]; then
         eval "$3='$(escape_single_quote "${RRC_VAL}")';" "$3=\"\${$3%_}\""
@@ -1699,26 +1699,36 @@ find_renpy_root_dir() { # 1 DIRECTORY
     unset FRRD_CURR_DIR
 }
 
-# Tries to find an icon file in the given directory and the given (case
-# insensitive) glob pattern for search
+# Tries to filter a given file or directory for a suitable icon file using a
+# glob pattern.
 #
-# $1: contains the directory to be checked. It is expected to be a existing
-#     directory.
+# $1: contains the directory or file to be checked. If this is an existing
+#     directory, it will be searched for valid icons matching $2. Otherwise, It
+#     will be checked whether this file exists and is a valid icon file.
 # $2: contains glob pattern used for the search. It will be given as an argument
-#     for `find`'s `-iname` option.
+#     for `find`'s `-iname` option for directory traversal.
 # $3: Additionally check whether this command is installed.
 #     (Optional. Defaults to 'magick'/'ffmpeg' if installed or 'file' otherwise)
 #     If 'magick' additionally check whether ImageMagick can handle it.
 #     If 'ffmpeg' additionally check whether MIME type is an image and ffmpeg
 #      can handle it. (This creates a temporary file.)
 #     If 'file' additionally check if MIME type is an image.
+# $4: Either 'all' or 'first'. Decicides whther to stop when a suitable icon
+#     is found. If set to 'all', this function will print all results to stdout,
+#     delimited by null characters ('\0').
+#     (Optional. Defaults to 'first')
 #
 # This function expects the $ICON_HANDLER_PROGRAM variable to be set.
 #
 # If the function terminates successfully, it will set $RAW_ICON accordingly to
-# the first found file.
-find_icon_file_glob() { # 3 DIRECTORY GLOB IMAGE_COMMAND
-    [ ! -d "$1" ] && log 'error' 'Directory must exist!' && exit 1
+# the first found file ($4 is 'first') or print all results to stdout ($4 is
+# 'all').
+find_icon_file_filter() { # 4 DIRECTORY GLOB IMAGE_COMMAND STRING
+    if [ "${4:-first}" = all ]; then
+        FIFG_LOOP='continue'
+    else
+        FIFG_LOOP='break'
+    fi
     if [ -z "${3:-}" ]; then
         if [ -n "$ICON_HANDLER_PROGRAM" ]; then
             set -- "$1" "$2" "$ICON_HANDLER_PROGRAM"
@@ -1727,9 +1737,8 @@ find_icon_file_glob() { # 3 DIRECTORY GLOB IMAGE_COMMAND
         fi
     fi
     FIFG_ESCAPE="$(escape_single_quote "$3")"
-
     # OMG correct file handling in UNIX…
-    RAW_ICON="$(find "$1" -xtype f -iname "$2" -exec /bin/sh -c "$(cat << EOF
+    FIFG_SCRIPT="$(cat << EOF
     set -eu
     has() { # Documentation above
         command -v "\$1" > /dev/null
@@ -1747,44 +1756,60 @@ find_icon_file_glob() { # 3 DIRECTORY GLOB IMAGE_COMMAND
                     FIFG_TYPE="\$FIFG_TYPE:"
                 fi
                 if magick identify "\$FIFG_TYPE\$FIFG_FILE" >/dev/null 2>&1; then
-                    printf '%s' "\$FIFG_FILE"
-                    break
+                    printf '%s\\0' "\$FIFG_FILE"
+                    $FIFG_LOOP
                 fi
                 ;;
             file)
                 if file -b --mime-type "\$FIFG_FILE" | grep -qi '^image/'; then
-                    printf '%s' "\$FIFG_FILE"
-                    break
+                    printf '%s\\0' "\$FIFG_FILE"
+                    $FIFG_LOOP
                 fi
                 ;;
             icns2png)
                 if icns2png -l "\$FIFG_FILE" >/dev/null 2>&1; then
-                    printf '%s' "\$FIFG_FILE"
-                    break
+                    printf '%s\\0' "\$FIFG_FILE"
+                    $FIFG_LOOP
                 fi
                 ;;
             ffmpeg)
                 if file -b --mime-type "\$FIFG_FILE" | grep -qi '^image/'; then
                     if ffprobe -i "\$FIFG_FILE" -v quiet -show_entries stream=codec_type | grep -q '=video\$'; then
                         if ffmpeg -i "\$FIFG_FILE" -v quiet -c png -f image2pipe - > /dev/null; then
-                            printf '%s' "\$FIFG_FILE"
-                            break
+                            printf '%s\\0' "\$FIFG_FILE"
+                            $FIFG_LOOP
                         fi
                     fi
                 fi
                 ;;
             *)
                 if file -b --mime-type "\$FIFG_FILE" | grep -qi '^image/'; then
-                    printf '%s' "\$FIFG_FILE"
-                    break
+                    printf '%s\\0' "\$FIFG_FILE"
+                    $FIFG_LOOP
                 fi
                 ;;
         esac
     done
 EOF
-    )" /bin/sh '{}' +; printf '_')"
-    RAW_ICON="${RAW_ICON%_}"
-    unset FIFG_FILE FIFG_TYPE FIFG_ESCAPE
+    )"
+
+    if [ "$FIFG_LOOP" = break ]; then
+        if [ -d "$1" ]; then
+            RAW_ICON="$(find "$1" -xtype f -iname "$2" -exec /bin/sh -c "$FIFG_SCRIPT" /bin/sh '{}' + 2>/dev/null | head -zn1 | tr -d '\0'; printf '_')"
+            RAW_ICON="${RAW_ICON%_}"
+        else
+            RAW_ICON="$(/bin/sh -c "$FIFG_SCRIPT" /bin/sh "$1" | head -zn1 | tr -d '\0'; printf '_')"
+            RAW_ICON="${RAW_ICON%_}"
+        fi
+    else
+        if [ -d "$1" ]; then
+            find "$1" -xtype f -iname "$2" -exec /bin/sh -c "$FIFG_SCRIPT" /bin/sh '{}' +
+        else
+            /bin/sh -c "$FIFG_SCRIPT" /bin/sh "$1"
+        fi
+    fi
+
+    unset FIFG_FILE FIFG_TYPE FIFG_ESCAPE FIFG_LOOP FIFG_DELIM FIFG_SCRIPT
 }
 
 # Tries to find a game icon in the game's directory.
@@ -1805,20 +1830,20 @@ find_icon_file() { # 1 DIRECTORY
     # Search for common Ren'Py icon names in descending order of complexity
     if [ -z "${RAW_ICON:+s}" ] && has icns2png && ! has magick && ! has_all ffmpeg ffprobe; then
         # Prefer MAC icons if magick/ffmpeg is not installed to make being able to handle it correctly more likely
-        find_icon_file_glob "$1" '*.icns' 'icns2png'
+        find_icon_file_filter "$1" '*.icns' 'icns2png'
         [ -n "${RAW_ICON:+h}" ] && ICON_ICNS='true'
     fi
-    [ -z "${RAW_ICON:+d}" ] && find_icon_file_glob "$1" 'icon.*'
-    [ -z "${RAW_ICON:+r}" ] && find_icon_file_glob "$1" 'window_icon.*'
-    [ -z "${RAW_ICON:+e}" ] && find_icon_file_glob "$1" '*.ico' # Windows
+    [ -z "${RAW_ICON:+d}" ] && find_icon_file_filter "$1" 'icon.*'
+    [ -z "${RAW_ICON:+r}" ] && find_icon_file_filter "$1" 'window_icon.*'
+    [ -z "${RAW_ICON:+e}" ] && find_icon_file_filter "$1" '*.ico' # Windows
     if [ -z "${RAW_ICON:+l}" ]; then # Mac
-        find_icon_file_glob "$1" '*.icns' 'icns2png'
+        find_icon_file_filter "$1" '*.icns' 'icns2png'
         [ -n "${RAW_ICON:+l}" ] && ICON_ICNS='true'
     fi
-    [ -z "${RAW_ICON:+y}" ] && find_icon_file_glob "$1" "android-icon_foreground.*"
-    [ -z "${RAW_ICON:+v}" ] && find_icon_file_glob "$1" "$BUILD_NAME.*" # Hopefully the name is not too generic…
+    [ -z "${RAW_ICON:+y}" ] && find_icon_file_filter "$1" "android-icon_foreground.*"
+    [ -z "${RAW_ICON:+v}" ] && find_icon_file_filter "$1" "$BUILD_NAME.*" # Hopefully the name is not too generic…
     [ -z "${RAW_ICON:+s}" ] && [ "$ICON_BROAD_SEARCH" = true ] &&\
-        find_icon_file_glob "$1" '*icon*.*' # This may produce undesired results
+        find_icon_file_filter "$1" '*icon*.*' # This may produce undesired results
     if [ -z "${RAW_ICON:+t}" ] && [ "$ICON_DOWNLOAD_DEFAULT" = true ] && has_any wget curl; then
         if has magick || has_all ffmpeg ffprobe && has mktemp; then
             FIF_DL_FILE="$(mktemp --suffix=.png)" # Only needed temporarily
@@ -3047,6 +3072,28 @@ determine_game_directory() { # 0
 #
 # If the function terminates successfully, it will set $RAW_ICON.
 determine_icon_file() { # 0
+    if read_renpy_config_string "$RENPY_ROOT_DIR/game"\
+        'config.window_icon' 'RAW_ICON' && [ -n "$RAW_ICON" ]; then
+        RAW_ICON="$RENPY_ROOT_DIR/game/$RAW_ICON"
+        # check whether we can process this file
+        find_icon_file_filter "$RAW_ICON" ''
+        ICON_DOWNLOADED='false'
+        case "$RAW_ICON" in
+            '');;
+            *.icns)
+                ICON_ICNS='true'
+                log 'info' "Extracted icon ‘$RAW_ICON’."
+                return 0
+                ;;
+            *)
+                ICON_ICNS='false'
+                log 'info' "Extracted icon ‘$RAW_ICON’."
+                return 0
+                ;;
+        esac
+    fi
+
+    # not configured, try to find something passable
     find_icon_file "$RENPY_ROOT_DIR"
     if [ -n "$RAW_ICON" ]; then
         log 'info' "Found icon ‘$RAW_ICON’."
