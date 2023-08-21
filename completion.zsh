@@ -159,7 +159,7 @@ all_opts=(
     '(-x --log-system -X --no-log-system)'{-x,--log-system}'[also log to system log]'
     '(-x --log-system -X --no-log-system)'{-X,--no-log-system}'[do not log to system log]'
     '(-q --quiet -X --no-log-system)'{-q,--quiet}'[same as ‘-Xl 0 -L 0’]'
-    '(-? --api-query)'{-'\\?',--api-query}'[API: query variables]:variables:_rdg_variables'
+    '(-? --api-query)'{-'\?',--api-query}'[API: query variables]:variables:_rdg_variables'
     '(-! --api-call)'{-!,--api-call}'[API: call function]:functions:_rdg_functions'
     '(- :)'{-h,--help}'[show help message in pager]'
     '(- :)'{-Z,--version}'[print version information]'
